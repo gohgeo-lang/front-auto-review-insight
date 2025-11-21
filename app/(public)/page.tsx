@@ -23,7 +23,7 @@ export default function Home() {
         <h1 className="text-3xl font-bold leading-tight mb-3">
           리뷰 관리를
           <br />
-          <span className="text-blue-600">AI가 대신합니다.</span>
+          <span className="text-blue-600">우리가 대신합니다.</span>
         </h1>
 
         <p className="text-gray-600 text-[15px] leading-relaxed">
