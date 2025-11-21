@@ -33,7 +33,7 @@ export default function Dashboard() {
         setFiltered(rv.data);
 
         // 사용자 인사이트 불러오기
-        const ins = await api.get(`/insight/${user.id}`).catch(() => null);
+        const ins = await api.get(`/insight/${user?.id}`).catch(() => null);
         setInsight(ins?.data || null);
       } catch (err) {
         console.error("리뷰 로딩 실패:", err);
@@ -160,8 +160,8 @@ export default function Dashboard() {
         {insight ? (
           <div className="bg-white border shadow-sm rounded-xl p-4">
             <p className="text-sm font-semibold text-gray-600 mb-2">인사이트</p>
-            <p className="text-sm mb-1">긍정: {insight.positive.join(", ")}</p>
-            <p className="text-sm">부정: {insight.negative.join(", ")}</p>
+            <p className="text-sm mb-1">긍정: {insight.positives.join(", ")}</p>
+            <p className="text-sm">부정: {insight.negatives.join(", ")}</p>
           </div>
         ) : (
           <div className="text-gray-500 text-sm">인사이트 없음</div>

@@ -1,4 +1,4 @@
-import AuthProvider from "../context/AuthContext";
+import "../globals.css";
 
 export default function PublicLayout({
   children,
@@ -8,9 +8,7 @@ export default function PublicLayout({
   return (
     <html lang="ko">
       <body className="bg-[#fafafa] min-h-screen mx-auto">
-        <AuthProvider>
-          <div className="w-full max-w-[430px] mx-auto">{children}</div>
-        </AuthProvider>
+        <div className="w-full max-w-[430px] mx-auto">{children}</div>
       </body>
     </html>
   );

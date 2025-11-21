@@ -3,31 +3,29 @@
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 
-export default function SplashPage() {
+export default function Splash() {
   const router = useRouter();
 
   useEffect(() => {
-    // 1.2초 뒤 온보딩으로 이동
-    const timer = setTimeout(() => {
-      router.replace("/onboarding");
-    }, 1200);
-
+    const timer = setTimeout(() => router.replace("/onboarding"), 1400);
     return () => clearTimeout(timer);
   }, [router]);
 
   return (
-    <div className="w-full h-screen flex flex-col items-center justify-center bg-white animate-fadeIn">
-      {/* 앱 로고 또는 브랜드 영역 */}
-      <div className="flex flex-col items-center">
-        <div className="w-20 h-20 bg-blue-600 rounded-2xl flex items-center justify-center text-white text-3xl font-bold mb-4">
-          R
+    <div className="h-screen flex items-center justify-center bg-gradient-to-b from-black via-slate-900 to-black text-white">
+      <div className="animate-fade-in scale-95 animate-bounce-in">
+        <div className="w-24 h-24 rounded-3xl bg-white/5 backdrop-blur-xl border border-white/15 flex items-center justify-center shadow-2xl">
+          <span className="text-2xl font-semibold tracking-tight text-emerald-300">
+            RAI
+          </span>
         </div>
 
-        <h1 className="text-2xl font-bold text-gray-800">
+        <h1 className="text-center mt-6 text-xl font-semibold opacity-90">
           Review Auto Insight
         </h1>
-
-        <p className="text-gray-500 text-sm mt-2">AI 리뷰 관리 서비스</p>
+        <p className="text-center text-xs text-gray-400 mt-2">
+          리뷰를 대신 읽어주는 AI 직원
+        </p>
       </div>
     </div>
   );

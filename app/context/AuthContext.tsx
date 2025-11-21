@@ -55,7 +55,7 @@ export default function AuthProvider({
     setUser(null);
   };
 
-  return (
+  return loading ? null : (
     <AuthContext.Provider value={{ user, loading, login, logout }}>
       {children}
     </AuthContext.Provider>

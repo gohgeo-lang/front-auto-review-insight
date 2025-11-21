@@ -7,6 +7,7 @@ import { useParams, useRouter } from "next/navigation";
 
 export default function ReviewDetail() {
   const { id } = useParams();
+  const reviewId = String(id);
   const router = useRouter();
 
   // 로그인 보호
@@ -36,11 +37,11 @@ export default function ReviewDetail() {
       const list = await api.get("/reviews");
       setAllReviews(list.data);
 
-      const index = list.data.findIndex((r: any) => r.id === id);
+      const index = list.data.findIndex((r: any) => r.id === reviewId);
       setCurrentIndex(index);
 
       // 현재 리뷰 데이터
-      const rv = await api.get(`/reviews/${id}`);
+      const rv = await api.get(`/reviews/${reviewId}`);
       setReview(rv.data);
 
       // 요약

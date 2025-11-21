@@ -17,7 +17,7 @@ export default function SetupStorePage() {
     if (!userJson) return;
     const user = JSON.parse(userJson);
 
-    if (user.placeId) router.push("/dashboard");
+    if (user.placeId) router.push("/setup-store");
   }, []);
 
   // 1) URL → placeId 추출
