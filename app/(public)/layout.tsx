@@ -6,10 +6,8 @@ export default function PublicLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="ko">
-      <body className="bg-[#fafafa] min-h-screen mx-auto">
-        <div className="w-full max-w-[430px] mx-auto">{children}</div>
-      </body>
-    </html>
+    <div className="w-full max-w-[430px] min-h-screen mx-auto bg-[#fafafa]">
+      {children}
+    </div>
   );
 }

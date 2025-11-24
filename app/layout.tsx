@@ -1,9 +1,6 @@
+// app/layout.tsx
 import "./globals.css";
-
-export const metadata = {
-  title: "Review Auto Insight",
-  description: "리뷰 자동 수집/요약 SaaS",
-};
+import { AuthProvider } from "./context/AuthContext";
 
 export default function RootLayout({
   children,
@@ -12,7 +9,9 @@ export default function RootLayout({
 }) {
   return (
     <html lang="ko">
-      <body>{children}</body>
+      <body className="bg-[#fafafa] min-h-screen flex justify-center">
+        <AuthProvider>{children}</AuthProvider>
+      </body>
     </html>
   );
 }
