@@ -74,6 +74,7 @@ export default function ReviewDetail() {
     setLoading(true);
     try {
       const res = await api.post("/ai/summary", {
+        reviewId,
         content: review.content,
       });
       setSummary(res.data);
@@ -100,10 +101,11 @@ export default function ReviewDetail() {
     setLoading(true);
     try {
       const res = await api.post("/ai/reply", {
+        reviewId,
         content: review.content,
         tone: "기본",
       });
-      const text = res.data.replyText;
+      const text = res.data.reply;
       setGeneratedReply(text);
       setReply(text);
       await saveReply(text);

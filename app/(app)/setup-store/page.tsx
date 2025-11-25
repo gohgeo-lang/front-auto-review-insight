@@ -47,13 +47,11 @@ export default function SetupStorePage() {
       const userJson = localStorage.getItem("user");
       if (!userJson) return alert("로그인 정보 없음");
 
-      const user = JSON.parse(userJson);
-
       const res = await api.post("/store/register-store", {
-        userId: user.id,
         placeId,
       });
 
+      const user = JSON.parse(userJson);
       user.placeId = placeId;
       localStorage.setItem("user", JSON.stringify(user));
 

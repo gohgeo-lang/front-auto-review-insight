@@ -33,7 +33,7 @@ export default function Dashboard() {
         setFiltered(rv.data);
 
         // 사용자 인사이트 불러오기
-        const ins = await api.get(`/insight/${user?.id}`).catch(() => null);
+        const ins = await api.get(`/insight`).catch(() => null);
         setInsight(ins?.data || null);
       } catch (err) {
         console.error("리뷰 로딩 실패:", err);
@@ -160,8 +160,12 @@ export default function Dashboard() {
         {insight ? (
           <div className="bg-white border shadow-sm rounded-xl p-4">
             <p className="text-sm font-semibold text-gray-600 mb-2">인사이트</p>
-            <p className="text-sm mb-1">긍정: {insight.positives.join(", ")}</p>
-            <p className="text-sm">부정: {insight.negatives.join(", ")}</p>
+            <p className="text-sm mb-1">
+              긍정: {(insight.positives || insight.positive || []).join(", ")}
+            </p>
+            <p className="text-sm">
+              부정: {(insight.negatives || insight.negative || []).join(", ")}
+            </p>
           </div>
         ) : (
           <div className="text-gray-500 text-sm">인사이트 없음</div>
@@ -169,13 +173,13 @@ export default function Dashboard() {
       </section>
 
       {/* 태그 */}
-      {insight?.tags && (
+      {(insight?.tags || insight?.tag) && (
         <div className="bg-white border rounded-lg p-4 mb-4 slide-up">
           <p className="text-sm font-semibold mb-2 text-gray-600">
             키워드 태그
           </p>
           <div className="flex flex-wrap gap-2">
-            {insight.tags.map((tag: string, i: number) => (
+            {(insight.tags || insight.tag || []).map((tag: string, i: number) => (
               <span
                 key={i}
                 className="px-2 py-1 bg-gray-100 text-gray-700 text-xs rounded-full"
