@@ -12,10 +12,14 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
 
-  // 이미 로그인된 사용자가 접근하면 대시보드로 자동 이동
+  // 이미 로그인된 사용자가 접근하면 대시보드 또는 온보딩으로 이동
   useEffect(() => {
     if (!authLoading && user) {
-      router.replace("/dashboard");
+      const onboardedKey = user.id ? `onboarded:${user.id}` : "onboarded";
+      const isOnboarded =
+        user.onboarded || localStorage.getItem(onboardedKey);
+      if (isOnboarded) router.replace("/dashboard");
+      else router.replace("/start/flow");
     }
   }, [authLoading, user, router]);
 
@@ -33,7 +37,12 @@ export default function LoginPage() {
       // AuthContext에 로그인 반영
       login(res.data.token, res.data.user);
 
-      router.push("/dashboard");
+      const onboardedKey = res.data.user?.id
+        ? `onboarded:${res.data.user.id}`
+        : "onboarded";
+      const isOnboarded =
+        res.data.user?.onboarded || localStorage.getItem(onboardedKey);
+      router.push(isOnboarded ? "/dashboard" : "/start/flow");
     } catch (e: any) {
       alert("로그인 실패. 이메일 또는 비밀번호를 확인해주세요.");
     } finally {

@@ -18,6 +18,7 @@ export default function ReviewDetail() {
   const [reply, setReply] = useState("");
   const [generatedReply, setGeneratedReply] = useState("");
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const [allReviews, setAllReviews] = useState<any[]>([]);
   const [currentIndex, setCurrentIndex] = useState<number>(-1);
@@ -33,23 +34,40 @@ export default function ReviewDetail() {
     if (!id) return;
 
     try {
+      setError(null);
       // 전체 리뷰 목록
       const list = await api.get("/reviews");
       setAllReviews(list.data);
 
-      const index = list.data.findIndex((r: any) => r.id === reviewId);
+      const index = list.data.findIndex(
+        (r: any) => r.id === reviewId || r.reviewId === reviewId
+      );
       setCurrentIndex(index);
 
       // 현재 리뷰 데이터
-      const rv = await api.get(`/reviews/${reviewId}`);
-      setReview(rv.data);
+      const rvResp = await api.get(`/reviews/${reviewId}`).catch(async () => {
+        const found = list.data.find(
+          (r: any) => r.reviewId === reviewId || r.id === reviewId
+        );
+        if (found?.id) {
+          return api.get(`/reviews/${found.id}`);
+        }
+        return null;
+      });
+
+      if (!rvResp?.data) {
+        setError("리뷰를 찾을 수 없습니다.");
+        return;
+      }
+
+      setReview(rvResp.data);
 
       // 요약
-      const sm = await api.get(`/summary/${id}`).catch(() => null);
+      const sm = await api.get(`/summary/${rvResp.data.id}`).catch(() => null);
       setSummary(sm?.data || null);
 
       // 응답문
-      const rp = await api.get(`/reply/${id}`).catch(() => null);
+      const rp = await api.get(`/reply/${rvResp.data.id}`).catch(() => null);
       if (rp?.data) {
         setGeneratedReply(rp.data.content);
         setReply(rp.data.content);
@@ -63,8 +81,20 @@ export default function ReviewDetail() {
     if (!authLoading && user) loadData();
   }, [authLoading, user, id, loadData]);
 
-  if (authLoading || !user || !review) {
+  if (authLoading || !user) {
     return <div className="p-8 text-center text-gray-500">불러오는 중...</div>;
+  }
+
+  if (error) {
+    return (
+      <div className="p-8 text-center text-red-500">
+        {error}
+      </div>
+    );
+  }
+
+  if (!review) {
+    return <div className="p-8 text-center text-gray-500">리뷰가 없습니다.</div>;
   }
 
   // =============================

@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import Header from "@/components/Header";
 import BottomNav from "@/components/BottomNav";
+import { GuardWrapper } from "./guard-wrapper";
 
 import "../globals.css";
 
@@ -23,12 +24,14 @@ export const metadata: Metadata = {
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div
-      className={`${geistSans.variable} ${geistMono.variable} w-full max-w-[430px] min-h-screen relative bg-white`}
-    >
-      <Header />
-      <main className="pt-[60px] pb-[70px]">{children}</main>
-      <BottomNav />
-    </div>
+    <GuardWrapper>
+      <div
+        className={`${geistSans.variable} ${geistMono.variable} w-full max-w-[430px] min-h-screen relative bg-white`}
+      >
+        <Header />
+        <main className="pt-[60px] pb-[70px]">{children}</main>
+        <BottomNav />
+      </div>
+    </GuardWrapper>
   );
 }

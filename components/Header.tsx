@@ -6,27 +6,18 @@ import useAuth from "@/app/hooks/useAuth";
 export default function Header() {
   const router = useRouter();
   const pathname = usePathname();
-  const { user, logout } = useAuth();
+  const { user } = useAuth();
 
-  const loggedIn = !!user;
-
-  const pageTitle =
-    {
-      "/": "Review Auto Insight",
-      "/dashboard": "대시보드",
-      "/setup-store": "매장 등록",
-    }[pathname] || "리뷰 상세";
+  const hiddenRoutes = ["/start/flow", "/start", "/onboarding/intro", "/onboarding/login"];
+  if (hiddenRoutes.some((p) => pathname?.startsWith(p))) {
+    return null;
+  }
 
   const showBack =
     pathname.startsWith("/review/") ||
     pathname === "/setup-store" ||
     pathname === "/auth/login" ||
     pathname === "/auth/register";
-
-  const handleLogout = () => {
-    logout();
-    router.push("/auth/login");
-  };
 
   return (
     <header
@@ -46,34 +37,50 @@ export default function Header() {
           ←
         </button>
       ) : (
-        <div className="w-5" />
-      )}
-
-      <div className="text-base font-semibold truncate text-center flex-1">
-        {pageTitle}
-      </div>
-
-      {loggedIn ? (
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => router.push("/dashboard")}
-            className="w-8 h-8 rounded-full bg-blue-500 text-white"
-          />
-          <button
-            onClick={handleLogout}
-            className="text-xs bg-blue-500 text-white px-3 py-1 rounded-md"
-          >
-            로그아웃
-          </button>
-        </div>
-      ) : (
         <button
-          className="text-sm bg-blue-500 text-white px-3 py-1 rounded-md active:scale-95"
-          onClick={() => router.push("/auth/login")}
+          onClick={() => router.push("/dashboard")}
+          className="text-lg font-bold text-blue-700 active:scale-95"
         >
-          로그인
+          RIB
         </button>
       )}
+
+      <div className="flex-1" />
+
+      {user && (
+        <NotificationButton onClick={() => router.push("/notifications")} />
+      )}
     </header>
+  );
+}
+
+function NotificationButton({ onClick }: { onClick: () => void }) {
+  return (
+    <button
+      onClick={onClick}
+      className="relative w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center text-gray-800 active:scale-95"
+      aria-label="알림"
+    >
+      <BellIcon className="w-5 h-5" />
+      <span className="absolute top-2 right-2 inline-flex h-2 w-2 rounded-full bg-red-500" />
+    </button>
+  );
+}
+
+function BellIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      className={className}
+      xmlns="http://www.w3.org/2000/svg"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.8"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M15 18a3 3 0 0 1-6 0" />
+      <path d="M18.7 14.7a2 2 0 0 1-.7-1.53V10a6 6 0 1 0-12 0v3.17a2 2 0 0 1-.7 1.53L4 16h16z" />
+    </svg>
   );
 }

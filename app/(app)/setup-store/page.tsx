@@ -11,13 +11,13 @@ export default function SetupStorePage() {
   const [placeId, setPlaceId] = useState("");
   const [loading, setLoading] = useState(false);
 
-  // 이미 매장 등록된 유저면 redirect
+  // 이미 매장 등록된 유저면 대시보드로
   useEffect(() => {
     const userJson = localStorage.getItem("user");
     if (!userJson) return;
     const user = JSON.parse(userJson);
 
-    if (user.placeId) router.push("/setup-store");
+    if (user.placeId) router.push("/dashboard");
   }, []);
 
   // 1) URL → placeId 추출
@@ -36,7 +36,7 @@ export default function SetupStorePage() {
     }
   }
 
-  // 2) placeId 저장 + 리뷰 자동 수집
+  // 2) placeId 저장 (수집/분석은 홈에서 수행)
   async function saveStore() {
     if (!placeId) return;
 
@@ -55,11 +55,14 @@ export default function SetupStorePage() {
       user.placeId = placeId;
       localStorage.setItem("user", JSON.stringify(user));
 
-      alert(`매장 등록 완료!\n리뷰 ${res.data.collected}개 수집.`);
+      setMessage("매장 등록이 완료되었습니다. 수집/분석을 시작하세요.");
 
-      router.push("/dashboard");
-    } catch (e) {
-      setMessage("저장에 실패했습니다. 다시 시도해주세요.");
+      // 수집/분석 페이지로 안내
+      router.push("/home");
+    } catch (e: any) {
+      const errMsg =
+        e?.response?.data?.error || "저장에 실패했습니다. 다시 시도해주세요.";
+      setMessage(errMsg);
     } finally {
       setLoading(false);
     }

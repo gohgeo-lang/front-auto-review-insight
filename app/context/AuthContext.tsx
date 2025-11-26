@@ -8,6 +8,7 @@ interface User {
   storeName?: string;
   storeUrl?: string;
   placeId?: string;
+  onboarded?: boolean;
 }
 
 interface AuthContextType {
@@ -43,12 +44,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const login = (token: string, user: User) => {
     localStorage.setItem("token", token);
     localStorage.setItem("user", JSON.stringify(user));
+    if (user?.id && user?.onboarded) {
+      localStorage.setItem(`onboarded:${user.id}`, "true");
+    }
     setUser(user);
   };
 
   const logout = () => {
     localStorage.removeItem("token");
     localStorage.removeItem("user");
+    // onboarded 플래그는 유지 (다시 로그인 시 활용)
     setUser(null);
   };
 
