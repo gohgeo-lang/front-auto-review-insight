@@ -7,26 +7,56 @@ export default function Splash() {
   const router = useRouter();
 
   useEffect(() => {
-    const timer = setTimeout(() => router.replace("/onboarding"), 1400);
+    const timer = setTimeout(() => router.replace("/onboarding/intro"), 2000);
     return () => clearTimeout(timer);
   }, [router]);
 
   return (
-    <div className="h-screen flex items-center justify-center bg-gradient-to-b from-black via-slate-900 to-black text-white">
-      <div className="animate-fade-in scale-95 animate-bounce-in">
-        <div className="w-24 h-24 rounded-3xl bg-white/5 backdrop-blur-xl border border-white/15 flex items-center justify-center shadow-2xl">
-          <span className="text-2xl font-semibold tracking-tight text-emerald-300">
-            RAI
-          </span>
+    <div
+      className="relative h-screen flex items-center justify-center bg-gradient-to-b from-white via-blue-50 to-blue-100 text-gray-900 overflow-hidden"
+      style={{
+        animation: "splashFadeIn 0.6s ease forwards, splashFadeOut 0.8s ease forwards 1.2s",
+      }}
+    >
+      <div className="absolute inset-0 opacity-35 bg-[radial-gradient(circle_at_20%_20%,rgba(59,130,246,0.2),transparent_30%),radial-gradient(circle_at_80%_10%,rgba(37,99,235,0.2),transparent_25%),radial-gradient(circle_at_50%_80%,rgba(96,165,250,0.2),transparent_30%)] animate-pulse" />
+      <div className="relative flex flex-col items-center animate-fadeIn">
+        <div className="relative">
+          <div className="absolute inset-0 rounded-3xl bg-yellow-300/25 blur-2xl animate-[ping_1.4s_ease-out_infinite_0.7s]" />
+          <div className="w-24 h-24 rounded-3xl bg-blue-600 text-white backdrop-blur-xl border border-white/40 flex items-center justify-center shadow-2xl animate-[bounce_1.4s_ease_infinite]">
+            <span className="text-2xl font-black tracking-tight">
+              RIB
+            </span>
+          </div>
         </div>
-
-        <h1 className="text-center mt-6 text-xl font-semibold opacity-90">
-          Review Auto Insight
+        <h1 className="text-center mt-6 text-2xl font-semibold text-gray-900 opacity-90 animate-pulse">
+          Review Insight Bot
         </h1>
-        <p className="text-center text-xs text-gray-400 mt-2">
-          리뷰를 대신 읽어주는 AI 직원
+        <p className="text-center text-sm text-gray-600 mt-2">
+          자동 수집 · 요약 · 인사이트
         </p>
       </div>
+      <style jsx global>{`
+        @keyframes splashFadeIn {
+          from {
+            opacity: 0;
+            transform: translateY(10px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
+        @keyframes splashFadeOut {
+          from {
+            opacity: 1;
+            transform: translateY(0);
+          }
+          to {
+            opacity: 0;
+            transform: translateY(-10px);
+          }
+        }
+      `}</style>
     </div>
   );
 }

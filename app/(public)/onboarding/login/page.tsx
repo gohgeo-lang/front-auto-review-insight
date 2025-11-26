@@ -1,9 +1,17 @@
 "use client";
 
+import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 
 export default function OnboardingLogin() {
   const router = useRouter();
+
+  useEffect(() => {
+    const token = localStorage.getItem("token");
+    if (token) {
+      router.replace("/dashboard");
+    }
+  }, [router]);
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-white to-blue-50 px-6 py-10 flex flex-col">

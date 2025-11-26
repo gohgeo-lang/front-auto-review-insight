@@ -1,7 +1,6 @@
 "use client";
 
-import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
 const slides = [
@@ -22,23 +21,52 @@ const slides = [
 export default function OnboardingIntro() {
   const router = useRouter();
   const [index, setIndex] = useState(0);
+  const [skipIntro, setSkipIntro] = useState(false);
   const slide = slides[index];
+
+  const getOnboarded = () => {
+    try {
+      const userJson = localStorage.getItem("user");
+      const userId = userJson ? JSON.parse(userJson)?.id : null;
+      const key = userId ? `onboarded:${userId}` : "onboarded";
+      return localStorage.getItem(key);
+    } catch {
+      return null;
+    }
+  };
 
   const next = () => {
     if (index === slides.length - 1) {
-      router.push("/onboarding/login");
+      if (skipIntro) {
+        localStorage.setItem("skipIntro", "true");
+      }
+      const token = localStorage.getItem("token");
+      const onboarded = getOnboarded();
+      if (token && onboarded) return router.replace("/dashboard");
+      if (token) return router.replace("/start/flow");
+      return router.replace("/onboarding/login");
     } else {
       setIndex((i) => i + 1);
     }
   };
 
+  useEffect(() => {
+    const token = localStorage.getItem("token");
+    const skip = localStorage.getItem("skipIntro") === "true";
+    const onboarded = getOnboarded();
+    if (token && onboarded) {
+      router.replace("/dashboard");
+      return;
+    }
+    if (token && skip) {
+      router.replace("/start/flow");
+    }
+  }, [router]);
+
   return (
     <div className="min-h-screen bg-white px-6 py-10 flex flex-col">
       <div className="flex justify-between items-center mb-8">
         <div className="text-sm font-bold text-blue-700">RIB</div>
-        <Link href="/auth/login" className="text-xs text-gray-600 underline">
-          로그인
-        </Link>
       </div>
 
       <div className="flex-1 flex flex-col items-center justify-center text-center space-y-4">
@@ -69,7 +97,14 @@ export default function OnboardingIntro() {
           {index === slides.length - 1 ? "시작하기" : "다음"}
         </button>
         <button
-          onClick={() => router.push("/onboarding/login")}
+          onClick={() => {
+            if (skipIntro) localStorage.setItem("skipIntro", "true");
+            const token = localStorage.getItem("token");
+            const onboarded = getOnboarded();
+            if (token && onboarded) return router.replace("/dashboard");
+            if (token) return router.replace("/start/flow");
+            return router.replace("/onboarding/login");
+          }}
           className="w-full py-3 rounded-xl border text-sm text-gray-700"
         >
           건너뛰기

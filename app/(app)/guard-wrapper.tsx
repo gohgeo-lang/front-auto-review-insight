@@ -10,6 +10,7 @@ export function GuardWrapper({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (typeof window === "undefined") return;
     let userId: string | null = null;
+    const token = localStorage.getItem("token");
     try {
       const userJson = localStorage.getItem("user");
       if (userJson) userId = JSON.parse(userJson)?.id || null;
@@ -17,21 +18,7 @@ export function GuardWrapper({ children }: { children: React.ReactNode }) {
       userId = null;
     }
 
-    const key = userId ? `onboarded:${userId}` : "onboarded";
-    const onboarded = localStorage.getItem(key);
-
-    // 온보딩/인증/스플래시/인트로는 허용, 그 외는 온보딩 완료 필요
-    const isAllowedPath =
-      pathname.startsWith("/onboarding") ||
-      pathname.startsWith("/auth") ||
-      pathname === "/" ||
-      pathname.startsWith("/start") ||
-      pathname.startsWith("/setup-store") ||
-      pathname.startsWith("/home");
-
-    if (!onboarded && !isAllowedPath) {
-      router.replace("/start");
-    }
+    // 온보딩 차단 로직 비활성화: 현재는 접근을 막지 않음
   }, [router, pathname]);
 
   return <>{children}</>;

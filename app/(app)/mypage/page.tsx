@@ -63,7 +63,7 @@ export default function MyPage() {
         <button
           onClick={() => {
             logout();
-            router.replace("/onboarding/login");
+            router.replace("/onboarding/intro");
           }}
           className="w-full text-left px-3 py-2 rounded-lg hover:bg-red-50 text-sm text-red-600"
         >
