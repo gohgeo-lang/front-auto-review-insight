@@ -23,6 +23,7 @@ export default function OnboardingIntro() {
   const [index, setIndex] = useState(0);
   const [skipIntro, setSkipIntro] = useState(false);
   const slide = slides[index];
+  const [transitionKey, setTransitionKey] = useState(0);
 
   const getOnboarded = () => {
     try {
@@ -51,6 +52,11 @@ export default function OnboardingIntro() {
   };
 
   useEffect(() => {
+    // 트랜지션 키를 변경해 슬라이드가 부드럽게 전환되도록
+    setTransitionKey((k) => k + 1);
+  }, [index]);
+
+  useEffect(() => {
     const token = localStorage.getItem("token");
     const skip = localStorage.getItem("skipIntro") === "true";
     const onboarded = getOnboarded();
@@ -64,28 +70,33 @@ export default function OnboardingIntro() {
   }, [router]);
 
   return (
-    <div className="min-h-screen bg-white px-6 py-10 flex flex-col">
+    <div className="min-h-screen bg-gradient-to-b from-white via-blue-50 to-blue-100 px-6 py-10 flex flex-col transition-opacity duration-500">
       <div className="flex justify-between items-center mb-8">
         <div className="text-sm font-bold text-blue-700">RIB</div>
       </div>
 
       <div className="flex-1 flex flex-col items-center justify-center text-center space-y-4">
-        <div className="text-xs font-semibold text-blue-700 uppercase tracking-wide">
-          Intro
-        </div>
-        <h1 className="text-2xl font-bold text-gray-900">{slide.title}</h1>
-        <p className="text-sm text-gray-700 leading-relaxed max-w-sm">
-          {slide.desc}
-        </p>
-        <div className="flex gap-2 pt-2">
-          {slides.map((_, i) => (
-            <span
-              key={i}
-              className={`h-2 w-2 rounded-full ${
-                i === index ? "bg-blue-600" : "bg-gray-300"
-              }`}
-            />
-          ))}
+        <div
+          key={transitionKey}
+          className="w-full flex flex-col items-center gap-3 animate-fadeIn"
+        >
+          <div className="text-xs font-semibold text-blue-700 uppercase tracking-wide">
+            Intro
+          </div>
+          <h1 className="text-2xl font-bold text-gray-900">{slide.title}</h1>
+          <p className="text-sm text-gray-700 leading-relaxed max-w-sm">
+            {slide.desc}
+          </p>
+          <div className="flex gap-2 pt-2">
+            {slides.map((_, i) => (
+              <span
+                key={i}
+                className={`h-2 w-2 rounded-full transition-colors duration-300 ${
+                  i === index ? "bg-blue-600" : "bg-gray-300"
+                }`}
+              />
+            ))}
+          </div>
         </div>
       </div>
 

@@ -9,6 +9,7 @@ export default function StartFlow() {
   const router = useRouter();
   const [step, setStep] = useState<Step>(0);
   const [placeId, setPlaceId] = useState("");
+  const [storeId, setStoreId] = useState("");
   const [status, setStatus] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [url, setUrl] = useState("");
@@ -38,8 +39,9 @@ export default function StartFlow() {
     setLoading(true);
     setStatus("채널 저장 중...");
     try {
-      await api.post("/store/register-store", { placeId });
-      setStatus("채널이 저장되었습니다.");
+      const res = await api.post("/store/register-store", { placeId });
+      setStoreId(res.data?.store?.id || "");
+      setStatus("채널이 저장되었습니다. 다음 단계로 진행하세요.");
       next();
     } catch (err: any) {
       const msg =
@@ -55,16 +57,33 @@ export default function StartFlow() {
     setStatus("수집 중...");
     setLogs(["수집 중..."]);
     try {
-      const res = await api.post("/crawler/naver", { placeId });
-      const addedMsg = `수집 완료: ${res.data?.added ?? 0}개`;
+      const res = await api.post("/crawler/naver", { placeId, storeId });
+      const added = res.data?.added ?? 0;
+      const rangeDays = res.data?.rangeDays;
+      const limitedBy = res.data?.limitedBy;
+      const rangeText = rangeDays ? `${rangeDays}일` : "전체";
+      const limitText =
+        limitedBy === "limit_300"
+          ? "(무료 한도 300개)"
+          : limitedBy?.startsWith("days_")
+          ? `(범위 ${rangeText})`
+          : "";
+      const addedMsg = `수집 완료: ${added}개 ${limitText}`.trim();
       const logArr: string[] = res.data?.logs || [];
-      const finalLogs = logArr.length ? logArr : [addedMsg];
+      const metaLog = `범위: ${rangeText}, 최대 300개 적용`;
+      const finalLogs = logArr.length ? [...logArr, metaLog] : [addedMsg, metaLog];
       setLogs(finalLogs);
       setStatus(finalLogs[finalLogs.length - 1] || addedMsg);
       next();
     } catch (err) {
-      setStatus("수집 실패. placeId나 네트워크를 확인하세요.");
-      setLogs((prev) => [...(prev.length ? prev : ["수집 중..."]), "수집 실패"]);
+      const code = (err as any)?.response?.data?.error;
+      if (code === "CREDITS_REQUIRED") {
+        setStatus("무료 한도를 모두 사용했습니다. 크레딧을 구매하거나 구독을 활성화하세요.");
+        setLogs(["크레딧 부족으로 수집 불가"]);
+      } else {
+        setStatus("수집 실패. placeId나 네트워크를 확인하세요.");
+        setLogs((prev) => [...(prev.length ? prev : ["수집 중..."]), "수집 실패"]);
+      }
     } finally {
       setLoading(false);
     }
@@ -74,7 +93,7 @@ export default function StartFlow() {
     setLoading(true);
     setStatus("AI 분석 중...");
     try {
-      await api.post("/ai/summary/missing");
+      await api.post("/ai/summary/missing", { storeId });
       // 온보딩 완료 플래그
       try {
         await api.post("/auth/complete-onboarding");

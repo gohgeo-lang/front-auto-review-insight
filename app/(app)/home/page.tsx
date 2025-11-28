@@ -1,251 +1,107 @@
 "use client";
 
-import { useEffect, useState, type ReactNode } from "react";
-import useAuthGuard from "@/app/hooks/useAuthGuard";
-import { api } from "@/lib/api";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
 
-type ProgressStep = {
-  label: string;
-  detail: string;
-};
-
-const steps: ProgressStep[] = [
-  { label: "대기 중", detail: "준비 중입니다." },
-  { label: "네이버 수집", detail: "네이버에서 리뷰 가져오는 중" },
-  { label: "정리 중", detail: "리뷰 정제 및 저장 중" },
-  { label: "AI 분석", detail: "감성/키워드 분석 중" },
-  { label: "완료", detail: "작업이 완료되었습니다." },
+const tips = [
+  {
+    title: "리뷰 수집 안정화 팁",
+    desc: "placeId가 올바른지 확인하고, 최초 수집 후 자동 수집을 켜 두세요.",
+  },
+  {
+    title: "인사이트 활용법",
+    desc: "긍정/부정 키워드를 보고 메뉴/서비스 개선 아이템을 바로 실행해 보세요.",
+  },
+  {
+    title: "리포트 받기",
+    desc: "주간/월간 리포트를 설정하면 접속하지 않아도 자동으로 받아볼 수 있습니다.",
+  },
 ];
 
-export default function HomeCollector() {
+export default function HomePage() {
   const router = useRouter();
-  const { loading: authLoading, user } = useAuthGuard();
-  const [progress, setProgress] = useState(0);
-  const [statusIdx, setStatusIdx] = useState(0);
-  const [message, setMessage] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [added, setAdded] = useState<number | null>(null);
-
-  const placeId = user?.placeId;
-  const step = steps[Math.min(statusIdx, steps.length - 1)];
-
-  useEffect(() => {
-    let timer: NodeJS.Timeout | null = null;
-    if (busy) {
-      timer = setInterval(() => {
-        setProgress((p) => Math.min(p + 5, 95));
-        setStatusIdx((s) => Math.min(s + 1, steps.length - 2));
-      }, 700);
-    } else {
-      setProgress(0);
-      setStatusIdx(0);
-    }
-    return () => {
-      if (timer) clearInterval(timer);
-    };
-  }, [busy]);
-
-  const disabled = busy || !placeId;
-
-  async function runNaver(withAnalysis = false) {
-    if (!placeId) {
-      router.push("/setup-store");
-      return;
-    }
-    setBusy(true);
-    setMessage("");
-    setAdded(null);
-    try {
-      const res = await api.post("/crawler/naver", { placeId });
-      setAdded(res.data?.added ?? 0);
-      setProgress(withAnalysis ? 60 : 100);
-      setStatusIdx(withAnalysis ? steps.length - 2 : steps.length - 1);
-      setMessage(`네이버에서 ${res.data?.added ?? 0}개 수집 완료`);
-
-      if (withAnalysis) {
-        try {
-          await api.post("/ai/summary/missing");
-          setStatusIdx(steps.length - 1);
-          setProgress(100);
-          setMessage("수집 + AI 분석이 완료되었습니다.");
-          const key = user?.id ? `onboarded:${user.id}` : "onboarded";
-          localStorage.setItem(key, "true");
-          try {
-            await api.post("/auth/complete-onboarding");
-            if (user) {
-              const updated = { ...user, onboarded: true };
-              localStorage.setItem("user", JSON.stringify(updated));
-            }
-          } catch (err) {
-            console.error("온보딩 완료 플래그 업데이트 실패", err);
-          }
-        } catch (err: any) {
-          const status = err?.response?.status;
-          const apiError = err?.response?.data?.error;
-          if (status === 429 || apiError === "OPENAI_QUOTA_EXCEEDED") {
-            setMessage("AI 쿼터를 초과했습니다. 키/요금제를 확인해 주세요.");
-          } else {
-            setMessage("AI 분석에 실패했습니다. 잠시 후 다시 시도해 주세요.");
-          }
-        }
-      }
-    } catch (err: any) {
-      setMessage("수집 실패. 네트워크나 placeId를 확인해주세요.");
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  if (authLoading || !user) {
-    return <div className="p-8 text-center text-gray-500">불러오는 중...</div>;
-  }
 
   return (
-    <div className="min-h-screen bg-[#fafafa] pt-[50px] pb-[90px] px-4 space-y-6 animate-fadeIn">
-      <section>
-        <h1 className="text-2xl font-bold">리뷰 수집</h1>
-        <p className="text-gray-600 text-sm mt-1">
-          연결된 채널에서 최신 리뷰를 불러옵니다.
+    <div className="min-h-screen bg-gradient-to-b from-white via-slate-50 to-sky-50 pt-[60px] pb-[90px] px-4 space-y-6 animate-fadeIn">
+      {/* 헤더 타이틀 */}
+      <section className="space-y-2">
+        <h1 className="text-2xl font-bold text-gray-900">우리 매장 리포트 받아보기</h1>
+        <p className="text-sm text-gray-600">
+          한 번의 무료 체험으로 인사이트를 받아보고, 구독으로 정기 리포트를 자동으로 받아보세요.
         </p>
       </section>
 
-      {/* 온보딩 가이드 */}
-      <section className="bg-white border rounded-xl shadow-sm p-4 space-y-4">
-        <div className="flex items-center justify-between">
-          <div>
-            <p className="text-xs text-blue-600 font-semibold">빠른 시작</p>
-            <p className="text-sm text-gray-700">
-              채널 연결 → 수집 → 분석 순서로 진행하세요.
-            </p>
-          </div>
-          <span className="text-xs bg-blue-50 text-blue-700 px-2 py-1 rounded-full">
-            Step-by-step
-          </span>
-        </div>
-
-        <div className="space-y-3">
-          <OnboardStep
-            title="채널 연결"
-            desc="네이버/카카오/구글 채널을 연결해 placeId를 등록하세요."
-            status={placeId ? "완료" : "필요"}
-            action={
-              <div className="flex gap-2">
-                {["네이버", "카카오", "구글"].map((ch) => (
-                  <button
-                    key={ch}
-                    onClick={() => router.push("/setup-store")}
-                    className="px-3 py-2 border rounded-lg text-xs text-gray-700"
-                  >
-                    {ch} 연결
-                  </button>
-                ))}
-              </div>
-            }
+      {/* 검색창 */}
+      <section>
+        <div className="bg-white border border-gray-100 rounded-2xl shadow-sm p-3 flex items-center gap-2">
+          <input
+            type="text"
+            placeholder="매장 이름, placeId 또는 URL을 검색하세요"
+            className="flex-1 text-sm px-3 py-2 rounded-xl border focus:ring-2 focus:ring-blue-400"
           />
-          <OnboardStep
-            title="리뷰 수집"
-            desc="버튼 한 번으로 최신 리뷰를 모읍니다."
-            status={busy ? "진행중" : added ? "완료" : "대기"}
-          />
-          <OnboardStep
-            title="분석/리포트"
-            desc="감성·키워드 분석 후 대시보드 리포트를 확인하세요."
-            status={statusIdx >= steps.length - 1 ? "완료" : "대기"}
-          />
-        </div>
-
-        <div className="text-xs text-gray-500">
-          예시 데이터와 리포트는 대시보드에서 확인할 수 있습니다. 수집/분석 진행
-          상황은 아래 진행률에서 확인하세요.
+          <button className="px-4 py-2 rounded-xl bg-blue-600 text-white text-sm font-semibold active:scale-95">
+            검색
+          </button>
         </div>
       </section>
 
-      <section className="bg-white border rounded-xl shadow-sm p-4 space-y-4">
-        <div>
-          <p className="text-sm text-gray-600 mb-1">네이버</p>
-          <p className="text-xs text-gray-500">
-            placeId: {placeId || "미설정"}
+      {/* 광고/배너 영역 (더미) */}
+      <section className="bg-gradient-to-r from-sky-500 to-indigo-500 text-white rounded-2xl p-4 shadow-sm">
+        <p className="text-xs uppercase font-semibold mb-1">Ad / Banner</p>
+        <h3 className="text-lg font-bold">AI 인사이트, 더 빠르고 가볍게</h3>
+        <p className="text-sm text-blue-50 mt-1">
+          리뷰를 자동 수집·분석해 주기 리포트까지 한 번에 받아보세요.
+        </p>
+      </section>
+
+      {/* 탭 영역: 무료 체험 vs 정기 리포트 */}
+      <section className="grid grid-cols-2 gap-3">
+        <button
+          onClick={() => router.push("/start/flow")}
+          className="bg-white border border-gray-100 rounded-2xl shadow-sm p-4 text-left space-y-2 hover:bg-gray-50 active:scale-98"
+        >
+          <p className="text-sm font-semibold text-blue-700">무료 1회 인사이트</p>
+          <p className="text-xs text-gray-600">
+            가입 후 매장 등록하면 리뷰 수집·분석 1회 무료 체험
           </p>
-        </div>
+          <span className="text-[11px] text-gray-500">최근 30일 · 300건까지</span>
+        </button>
+        <button
+          onClick={() => router.push("/plans")}
+          className="bg-white border border-gray-100 rounded-2xl shadow-sm p-4 text-left space-y-2 hover:bg-gray-50 active:scale-98"
+        >
+          <p className="text-sm font-semibold text-blue-700">정기 리포트 받기</p>
+          <p className="text-xs text-gray-600">
+            구독으로 주간/월간/분기/연간 리포트를 자동 발행
+          </p>
+          <span className="text-[11px] text-gray-500">매장당 ₩3,000/월</span>
+        </button>
+      </section>
 
-        <div className="w-full h-3 bg-gray-100 rounded-full overflow-hidden">
-          <div
-            className="h-full bg-blue-500 transition-all duration-300"
-            style={{ width: `${progress}%` }}
-          />
-        </div>
-        <div className="text-sm text-gray-700">
-          {step.label} · {step.detail}
-        </div>
-        {message && <div className="text-sm text-blue-600">{message}</div>}
-        {added !== null && (
-          <div className="text-sm text-gray-700">
-            총 {added}개가 추가되었습니다.
-          </div>
-        )}
+      {/* 슬로건 */}
+      <section className="bg-white border border-gray-100 rounded-2xl shadow-sm p-4">
+        <p className="text-sm font-semibold text-gray-900">
+          “리뷰를 직접 보지 않아도, 운영에 필요한 인사이트를 자동으로”
+        </p>
+        <p className="text-xs text-gray-600 mt-1">
+          수집 · 요약 · 키워드 · 감성 분석 · 리포트 발행까지 한 번에 처리합니다.
+        </p>
+      </section>
 
-        <div className="flex gap-2">
-          <button
-            onClick={() => runNaver(true)}
-            disabled={disabled}
-            className={`flex-1 py-3 rounded-lg text-white text-sm font-semibold ${
-              disabled ? "bg-gray-400" : "bg-green-600"
-            }`}
-          >
-            {busy ? "진행 중..." : "빠른 시작 (수집+분석)"}
-          </button>
-          <button
-            onClick={() => runNaver(false)}
-            disabled={disabled}
-            className={`flex-1 py-3 rounded-lg text-white text-sm font-semibold ${
-              disabled ? "bg-gray-400" : "bg-blue-600"
-            }`}
-          >
-            {busy ? "수집 중..." : "네이버 리뷰 수집"}
-          </button>
-          <button
-            onClick={() => router.push("/setup-store")}
-            className="px-4 py-3 rounded-lg border text-sm text-gray-700"
-          >
-            채널 관리
-          </button>
+      {/* 가이드/팁 카드 */}
+      <section className="space-y-2">
+        <p className="text-sm font-semibold text-gray-800">가이드 & 팁</p>
+        <div className="grid gap-3">
+          {tips.map((tip) => (
+            <div
+              key={tip.title}
+              className="bg-white border border-gray-100 rounded-2xl shadow-sm p-4 space-y-1"
+            >
+              <p className="text-sm font-semibold text-gray-900">{tip.title}</p>
+              <p className="text-xs text-gray-600">{tip.desc}</p>
+            </div>
+          ))}
         </div>
       </section>
-    </div>
-  );
-}
-
-function OnboardStep({
-  title,
-  desc,
-  status,
-  action,
-}: {
-  title: string;
-  desc: string;
-  status: "완료" | "진행중" | "대기" | "필요";
-  action?: ReactNode;
-}) {
-  const color =
-    status === "완료"
-      ? "bg-green-50 text-green-700 border border-green-100"
-      : status === "진행중"
-      ? "bg-blue-50 text-blue-700 border border-blue-100"
-      : status === "필요"
-      ? "bg-red-50 text-red-700 border border-red-100"
-      : "bg-gray-100 text-gray-700";
-  return (
-    <div className="rounded-xl border p-3">
-      <div className="flex items-center justify-between mb-1">
-        <p className="font-semibold text-sm">{title}</p>
-        <span className={`text-[11px] px-2 py-1 rounded-full ${color}`}>
-          {status}
-        </span>
-      </div>
-      <p className="text-xs text-gray-600 mb-2">{desc}</p>
-      {action}
     </div>
   );
 }

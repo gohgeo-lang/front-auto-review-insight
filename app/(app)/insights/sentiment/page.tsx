@@ -37,6 +37,7 @@ export default function SentimentDetailPage() {
     const grouped: Record<string, ReviewItem[]> = {
       positive: [],
       negative: [],
+      neutral: [],
       irrelevant: [],
     };
     reviews.forEach((r) => {
@@ -60,10 +61,10 @@ export default function SentimentDetailPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#fafafa] pt-[50px] pb-[90px] px-4 space-y-6 animate-fadeIn">
+    <div className="min-h-screen bg-gradient-to-b from-white via-slate-50 to-sky-50 pt-[50px] pb-[90px] px-4 space-y-6 animate-fadeIn">
       <section className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold">감성 상세 리포트</h1>
+          <h1 className="text-2xl font-bold text-gray-900">감성 상세 리포트</h1>
           <p className="text-gray-600 text-sm mt-1">
             긍정/부정/무관 리뷰를 살펴보고 주요 내용을 확인하세요.
           </p>
@@ -73,7 +74,29 @@ export default function SentimentDetailPage() {
         </Link>
       </section>
 
-      {["positive", "negative", "irrelevant"].map((type) => (
+      <section className="bg-white border border-gray-100 rounded-xl shadow-xs p-4">
+        <h2 className="text-base font-semibold mb-3">감성 분포</h2>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-center text-sm">
+          {[
+            { label: "긍정", key: "positive", color: "text-green-600" },
+            { label: "중립", key: "neutral", color: "text-blue-600" },
+            { label: "부정", key: "negative", color: "text-orange-600" },
+            { label: "기타", key: "irrelevant", color: "text-gray-600" },
+          ].map((item) => (
+            <div
+              key={item.key}
+              className="border border-gray-100 rounded-lg p-3 bg-gray-50 flex flex-col items-center"
+            >
+              <p className={`text-xs ${item.color}`}>{item.label}</p>
+              <p className="text-lg font-bold">
+                {(sentimentBuckets[item.key] || []).length}
+              </p>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {["positive", "neutral", "negative", "irrelevant"].map((type) => (
         <SentimentBlock
           key={type}
           title={
@@ -81,6 +104,8 @@ export default function SentimentDetailPage() {
               ? "👍 긍정 TOP 10"
               : type === "negative"
               ? "👎 부정 TOP 10"
+              : type === "neutral"
+              ? "😐 중립 TOP 10"
               : "🚫 무관 리뷰"
           }
           reviews={sentimentBuckets[type] || []}
@@ -98,7 +123,7 @@ function SentimentBlock({
   reviews: ReviewItem[];
 }) {
   return (
-    <section className="bg-white border rounded-xl shadow-sm p-4 space-y-3">
+    <section className="bg-white border border-gray-100 rounded-xl shadow-xs p-4 space-y-3">
       <div className="flex items-center justify-between">
         <h2 className="text-base font-semibold">{title}</h2>
         <span className="text-xs text-gray-500">{reviews.length}건</span>
@@ -108,7 +133,7 @@ function SentimentBlock({
       ) : (
         <div className="space-y-3">
           {reviews.map((r) => (
-            <article key={r.id} className="border rounded-lg p-3">
+            <article key={r.id} className="border border-gray-100 rounded-lg p-3 bg-gray-50">
               <div className="flex justify-between text-xs text-gray-500 mb-1">
                 <span>{r.summary?.sentiment || "-"}</span>
                 <span>{(r.createdAt || "").slice(0, 10)}</span>

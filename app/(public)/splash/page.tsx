@@ -15,14 +15,14 @@ export default function Splash() {
     <div
       className="relative h-screen flex items-center justify-center bg-gradient-to-b from-white via-blue-50 to-blue-100 text-gray-900 overflow-hidden"
       style={{
-        animation: "splashFadeIn 0.6s ease forwards, splashFadeOut 0.8s ease forwards 1.2s",
+        animation: "splashFadeIn 0.8s ease forwards, splashFadeOut 0.8s ease forwards 1.4s",
       }}
     >
       <div className="absolute inset-0 opacity-35 bg-[radial-gradient(circle_at_20%_20%,rgba(59,130,246,0.2),transparent_30%),radial-gradient(circle_at_80%_10%,rgba(37,99,235,0.2),transparent_25%),radial-gradient(circle_at_50%_80%,rgba(96,165,250,0.2),transparent_30%)] animate-pulse" />
       <div className="relative flex flex-col items-center animate-fadeIn">
         <div className="relative">
-          <div className="absolute inset-0 rounded-3xl bg-yellow-300/25 blur-2xl animate-[ping_1.4s_ease-out_infinite_0.7s]" />
-          <div className="w-24 h-24 rounded-3xl bg-blue-600 text-white backdrop-blur-xl border border-white/40 flex items-center justify-center shadow-2xl animate-[bounce_1.4s_ease_infinite]">
+          <div className="absolute inset-0 rounded-3xl bg-blue-300/30 blur-2xl animate-[ping_1.6s_ease-out_infinite_0.7s]" />
+          <div className="w-24 h-24 rounded-3xl bg-blue-600 text-white backdrop-blur-xl border border-white/40 flex items-center justify-center shadow-2xl animate-[bounce_1.6s_ease_infinite]">
             <span className="text-2xl font-black tracking-tight">
               RIB
             </span>
@@ -53,7 +53,7 @@ export default function Splash() {
           }
           to {
             opacity: 0;
-            transform: translateY(-10px);
+            transform: translateY(-6px);
           }
         }
       `}</style>

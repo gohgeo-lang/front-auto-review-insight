@@ -1,6 +1,7 @@
 "use client";
 
-import { createContext, useEffect, useState, ReactNode } from "react";
+import { createContext, useEffect, useState, ReactNode, useCallback } from "react";
+import { api } from "@/lib/api";
 
 interface User {
   id: string;
@@ -9,6 +10,12 @@ interface User {
   storeUrl?: string;
   placeId?: string;
   onboarded?: boolean;
+  subscriptionStatus?: string;
+  subscriptionTier?: string | null;
+  storeQuota?: number;
+  extraCredits?: number;
+  nextBillingAt?: string | null;
+  lastBilledAt?: string | null;
 }
 
 interface AuthContextType {
@@ -16,6 +23,7 @@ interface AuthContextType {
   loading: boolean;
   login: (token: string, user: User) => void;
   logout: () => void;
+  refresh: () => Promise<void>;
 }
 
 export const AuthContext = createContext<AuthContextType | null>(null);
@@ -41,6 +49,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setLoading(false);
   }, []);
 
+  const refresh = useCallback(async () => {
+    try {
+      const res = await api.get<User>("/auth/me");
+      const nextUser = res.data;
+      localStorage.setItem("user", JSON.stringify(nextUser));
+      setUser(nextUser);
+    } catch {
+      // ignore
+    }
+  }, []);
+
   const login = (token: string, user: User) => {
     localStorage.setItem("token", token);
     localStorage.setItem("user", JSON.stringify(user));
@@ -58,7 +77,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, logout }}>
+    <AuthContext.Provider value={{ user, loading, login, logout, refresh }}>
       {children}
     </AuthContext.Provider>
   );

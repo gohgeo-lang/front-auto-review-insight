@@ -13,13 +13,13 @@ export default function NotificationsPage() {
   if (loading || !user) return <div className="p-6">로딩 중...</div>;
 
   return (
-    <div className="min-h-screen bg-[#f8f8f8] pt-[60px] pb-[90px] px-4 space-y-4 animate-fadeIn">
+    <div className="min-h-screen bg-gradient-to-b from-white via-slate-50 to-sky-50 pt-[60px] pb-[90px] px-4 space-y-4 animate-fadeIn">
       <h1 className="text-xl font-bold text-gray-800">알림</h1>
       <div className="space-y-3">
         {mockNotices.map((n, idx) => (
           <div
             key={idx}
-            className="bg-white rounded-xl border shadow-sm p-4 space-y-1"
+            className="bg-white rounded-xl border border-gray-100 shadow-xs p-4 space-y-1"
           >
             <div className="flex items-center justify-between">
               <p className="text-sm font-semibold text-gray-800">{n.title}</p>
