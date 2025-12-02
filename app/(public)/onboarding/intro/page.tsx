@@ -9,7 +9,7 @@ const slides = [
     desc: "네이버·카카오·구글 리뷰를 자동으로 모으고 핵심만 정리해 드립니다.",
   },
   {
-    title: "AI 인사이트 분석",
+  title: "인사이트 분석",
     desc: "긍정/부정/무관 리뷰를 분류하고 키워드로 한눈에 파악합니다.",
   },
   {
@@ -72,7 +72,7 @@ export default function OnboardingIntro() {
   return (
     <div className="min-h-screen bg-gradient-to-b from-white via-blue-50 to-blue-100 px-6 py-10 flex flex-col transition-opacity duration-500">
       <div className="flex justify-between items-center mb-8">
-        <div className="text-sm font-bold text-blue-700">RIB</div>
+        <div className="text-sm font-bold text-blue-700">EMILY</div>
       </div>
 
       <div className="flex-1 flex flex-col items-center justify-center text-center space-y-4">
@@ -81,7 +81,7 @@ export default function OnboardingIntro() {
           className="w-full flex flex-col items-center gap-3 animate-fadeIn"
         >
           <div className="text-xs font-semibold text-blue-700 uppercase tracking-wide">
-            Intro
+            소개
           </div>
           <h1 className="text-2xl font-bold text-gray-900">{slide.title}</h1>
           <p className="text-sm text-gray-700 leading-relaxed max-w-sm">

@@ -22,7 +22,7 @@ export default function StoryModal({ open, onClose, label }: any) {
         <p className="text-gray-700 leading-relaxed">
           {label}에 대한 간단한 인사이트를 준비했습니다.
           <br />
-          여기에는 AI 기반 리뷰 요약, 최근 리뷰 정보,
+          여기에는 리뷰 요약, 최근 리뷰 정보,
           <br />
           또는 플랫폼별 분석 내용을 표시할 수 있습니다.
         </p>

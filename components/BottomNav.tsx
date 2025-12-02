@@ -13,13 +13,16 @@ export default function BottomNav() {
   const router = useRouter();
   const pathname = usePathname();
 
-  const hiddenRoutes = ["/start/flow", "/start", "/onboarding/intro", "/onboarding/login"];
-  if (hiddenRoutes.some((p) => pathname?.startsWith(p))) {
+  const hiddenRoutes = ["/start", "/onboarding/intro", "/onboarding/login"];
+  const isHidden = hiddenRoutes.some((p) =>
+    p === "/start" ? pathname === "/start" : pathname?.startsWith(p)
+  );
+  if (isHidden) {
     return null;
   }
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 h-[64px] bg-white/95 backdrop-blur border-t border-gray-200 shadow-sm flex justify-around items-center z-50 max-w-[430px] mx-auto">
+    <nav className="fixed bottom-0 left-0 right-0 h-[64px] bg-white/95 backdrop-blur border-t border-gray-200 shadow-sm flex justify-around items-center z-[60] max-w-[430px] mx-auto">
       {items.map((item) => (
         <button
           key={item.path}

@@ -41,7 +41,7 @@ export default function Header() {
           onClick={() => router.push("/dashboard")}
           className="text-lg font-bold text-blue-700 active:scale-95"
         >
-          RIB
+          EMILY
         </button>
       )}
 

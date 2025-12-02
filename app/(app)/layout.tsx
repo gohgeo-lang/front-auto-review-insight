@@ -17,8 +17,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Review Auto Insight",
-  description: "Online Review Analysis",
+  title: "EMILY",
+  description: "정기 고객반응 리포트를 챙겨주는 비서",
 };
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {

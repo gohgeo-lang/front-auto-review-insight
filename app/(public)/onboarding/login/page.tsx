@@ -16,16 +16,16 @@ export default function OnboardingLogin() {
   return (
     <div className="min-h-screen bg-gradient-to-b from-white to-blue-50 px-6 py-10 flex flex-col">
       <div className="flex justify-between items-center mb-8">
-        <div className="text-sm font-bold text-blue-700">RIB</div>
+        <div className="text-sm font-bold text-blue-700">EMILY</div>
       </div>
 
       <div className="flex-1 flex flex-col items-center justify-center text-center space-y-4">
         <div className="text-xs font-semibold text-blue-700 uppercase tracking-wide">
-          Onboarding
+          시작하기
         </div>
-        <h1 className="text-3xl font-bold text-gray-900">RIB</h1>
+        <h1 className="text-3xl font-bold text-gray-900">EMILY</h1>
         <p className="text-sm text-gray-600">
-          리뷰 자동 수집과 AI 인사이트 리포트, 한 번에.
+          리뷰 자동 수집과 인사이트 리포트, 한 번에.
         </p>
       </div>
 

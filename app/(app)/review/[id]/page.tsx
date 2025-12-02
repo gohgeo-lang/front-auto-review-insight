@@ -98,7 +98,7 @@ export default function ReviewDetail() {
   }
 
   // =============================
-  // AI 요약 생성
+  // 요약 생성
   // =============================
   async function generateSummary() {
     setLoading(true);
@@ -125,7 +125,7 @@ export default function ReviewDetail() {
   }
 
   // =============================
-  // AI 응대문 생성
+  // 응대문 생성
   // =============================
   async function generateReply() {
     setLoading(true);
@@ -169,10 +169,10 @@ export default function ReviewDetail() {
       </div>
 
       {/* ======================= */}
-      {/* AI 요약 */}
+      {/* 요약 */}
       {/* ======================= */}
       <div className="bg-white border rounded-xl shadow-sm p-4 mb-4">
-        <h2 className="text-lg font-bold mb-3">AI 요약</h2>
+        <h2 className="text-lg font-bold mb-3">요약</h2>
 
         {summary ? (
           <div className="space-y-4 text-sm">
@@ -215,16 +215,16 @@ export default function ReviewDetail() {
             disabled={loading}
             className="w-full bg-blue-500 text-white py-2 rounded-lg active:scale-95 transition"
           >
-            {loading ? "생성 중..." : "AI 요약 생성"}
+            {loading ? "생성 중..." : "요약 생성"}
           </button>
         )}
       </div>
 
       {/* ======================= */}
-      {/* AI 응대문 */}
+      {/* 응대문 */}
       {/* ======================= */}
       <div className="bg-white border rounded-xl shadow-sm p-4 mb-24">
-        <h2 className="text-lg font-bold mb-3">AI 자동 응대문</h2>
+        <h2 className="text-lg font-bold mb-3">자동 응대문</h2>
 
         {generatedReply ? (
           <p className="text-gray-800 whitespace-pre-line leading-relaxed">
@@ -290,11 +290,11 @@ export default function ReviewDetail() {
       </div>
 
       {/* ======================= */}
-      {/* AI 키워드 태그 */}
+      {/* 키워드 태그 */}
       {/* ======================= */}
       {summary?.tags?.length > 0 && (
         <div className="bg-white border rounded-xl shadow-sm p-4 mb-4 slide-up">
-          <h3 className="text-sm font-semibold mb-2">AI 키워드 태그</h3>
+          <h3 className="text-sm font-semibold mb-2">키워드 태그</h3>
           <div className="flex gap-2 flex-wrap">
             {summary.tags.map((tag: string, i: number) => (
               <span

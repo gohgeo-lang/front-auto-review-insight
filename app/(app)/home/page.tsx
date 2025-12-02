@@ -47,7 +47,7 @@ export default function HomePage() {
       {/* 광고/배너 영역 (더미) */}
       <section className="bg-gradient-to-r from-sky-500 to-indigo-500 text-white rounded-2xl p-4 shadow-sm">
         <p className="text-xs uppercase font-semibold mb-1">Ad / Banner</p>
-        <h3 className="text-lg font-bold">AI 인사이트, 더 빠르고 가볍게</h3>
+        <h3 className="text-lg font-bold">인사이트, 더 빠르고 가볍게</h3>
         <p className="text-sm text-blue-50 mt-1">
           리뷰를 자동 수집·분석해 주기 리포트까지 한 번에 받아보세요.
         </p>
@@ -59,14 +59,14 @@ export default function HomePage() {
           onClick={() => router.push("/start/flow")}
           className="bg-white border border-gray-100 rounded-2xl shadow-sm p-4 text-left space-y-2 hover:bg-gray-50 active:scale-98"
         >
-          <p className="text-sm font-semibold text-blue-700">무료 1회 인사이트</p>
+          <p className="text-sm font-semibold text-blue-700">우리 매장 스캔하기</p>
           <p className="text-xs text-gray-600">
-            가입 후 매장 등록하면 리뷰 수집·분석 1회 무료 체험
+            보유 토큰으로 리뷰 수집·분석을 한 번 실행합니다.
           </p>
           <span className="text-[11px] text-gray-500">최근 30일 · 300건까지</span>
         </button>
         <button
-          onClick={() => router.push("/plans")}
+          onClick={() => router.push("/reports")}
           className="bg-white border border-gray-100 rounded-2xl shadow-sm p-4 text-left space-y-2 hover:bg-gray-50 active:scale-98"
         >
           <p className="text-sm font-semibold text-blue-700">정기 리포트 받기</p>

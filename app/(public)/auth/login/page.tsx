@@ -12,10 +12,10 @@ export default function LoginPage() {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
 
-  // 이미 로그인된 사용자가 접근하면 대시보드 또는 온보딩으로 이동
+  // 이미 로그인된 사용자가 접근하면 홈으로 이동
   useEffect(() => {
     if (!authLoading && user) {
-      router.replace("/dashboard");
+      router.replace("/home");
     }
   }, [authLoading, user, router]);
 
@@ -33,7 +33,7 @@ export default function LoginPage() {
       // AuthContext에 로그인 반영
       login(res.data.token, res.data.user);
 
-      router.push("/dashboard");
+      router.push("/home");
     } catch (e: any) {
       alert("로그인 실패. 이메일 또는 비밀번호를 확인해주세요.");
     } finally {
@@ -49,9 +49,7 @@ export default function LoginPage() {
   return (
     <div className="px-4 py-8 animate-fadeIn">
       <h1 className="text-2xl font-bold mb-2">로그인</h1>
-      <p className="text-gray-600 text-sm mb-6">
-        RIB에서 고객반응을 분석해보세요.
-      </p>
+      <p className="text-gray-600 text-sm mb-6">EMILY에서 고객반응을 분석해보세요.</p>
 
       <div className="space-y-4">
         <input

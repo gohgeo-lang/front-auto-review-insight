@@ -2,11 +2,13 @@
 
 import { useEffect, useState } from "react";
 import useAuthGuard from "@/app/hooks/useAuthGuard";
+import useAuth from "@/app/hooks/useAuth";
 import { api } from "@/lib/api";
 import { useRouter } from "next/navigation";
 
 export default function ProfilePage() {
   const { loading: authLoading, user } = useAuthGuard();
+  const { refresh } = useAuth();
   const router = useRouter();
   const [name, setName] = useState("");
   const [nickname, setNickname] = useState("");
@@ -18,7 +20,7 @@ export default function ProfilePage() {
 
   useEffect(() => {
     setName(user?.name || "");
-    setNickname(user?.nickname || "");
+    setNickname(user?.nickname || "대표님");
     setGender(user?.gender || "");
     setAddress(user?.address || "");
     const hasProfile =
@@ -34,7 +36,9 @@ export default function ProfilePage() {
     setSaveMessage(null);
     try {
       await api.post("/auth/profile", { name, nickname, gender, address });
+      await refresh();
       setSaveMessage("저장되었습니다.");
+      setEditing(false);
     } catch {
       setSaveMessage("저장 실패. 값을 확인하세요.");
     } finally {

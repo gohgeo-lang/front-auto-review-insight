@@ -11,6 +11,10 @@ import {
   Legend,
   AreaChart,
   Area,
+  BarChart,
+  Bar,
+  Cell,
+  LabelList,
 } from "recharts";
 
 type Props = {
@@ -31,41 +35,39 @@ export default function RatingChart({ data, variant = "rating" }: Props) {
     <div className="w-full h-60">
       <ResponsiveContainer width="100%" height="100%">
         {isSentiment ? (
-          <AreaChart data={data}>
-            <CartesianGrid stroke="#eee" strokeDasharray="3 3" />
-            <XAxis dataKey="date" />
-            <YAxis allowDecimals={false} />
-            <Tooltip formatter={(value, name) => [value, labelMap[name] || name]} />
-            <Legend formatter={(value) => labelMap[value] || value} />
-            <Area
-              type="monotone"
-              dataKey="positive"
-              stackId="1"
-              stroke="#22c55e"
-              fill="#bbf7d0"
-            />
-            <Area
-              type="monotone"
-              dataKey="negative"
-              stackId="1"
-              stroke="#ef4444"
-              fill="#fecdd3"
-            />
-            <Area
-              type="monotone"
-              dataKey="neutral"
-              stackId="1"
-              stroke="#38bdf8"
-              fill="#bae6fd"
-            />
-            <Area
-              type="monotone"
-              dataKey="irrelevant"
-              stackId="1"
-              stroke="#a3a3a3"
-              fill="#e5e5e5"
-            />
-          </AreaChart>
+          (() => {
+            const totals = data.reduce(
+              (acc, cur) => {
+                acc.positive += cur.positive || 0;
+                acc.negative += cur.negative || 0;
+                acc.neutral += cur.neutral || 0;
+                acc.irrelevant += cur.irrelevant || 0;
+                return acc;
+              },
+              { positive: 0, negative: 0, neutral: 0, irrelevant: 0 }
+            );
+            const chartData = [
+              { key: "positive", name: "긍정", value: totals.positive, color: "#22c55e" },
+              { key: "neutral", name: "중립", value: totals.neutral, color: "#38bdf8" },
+              { key: "negative", name: "부정", value: totals.negative, color: "#ef4444" },
+              { key: "irrelevant", name: "기타", value: totals.irrelevant, color: "#a3a3a3" },
+            ];
+            return (
+              <BarChart data={chartData} barSize={32}>
+                <CartesianGrid stroke="#eee" strokeDasharray="3 3" />
+                <XAxis dataKey="name" />
+                <YAxis allowDecimals={false} />
+                <Tooltip formatter={(v: any, n: any) => [v, n]} />
+                <Legend />
+                <Bar dataKey="value" name="건수">
+                  <LabelList dataKey="value" position="top" />
+                  {chartData.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={entry.color} />
+                  ))}
+                </Bar>
+              </BarChart>
+            );
+          })()
         ) : (
           <LineChart data={data}>
             <CartesianGrid stroke="#eee" strokeDasharray="3 3" />

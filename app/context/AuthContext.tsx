@@ -14,6 +14,7 @@ interface User {
   subscriptionTier?: string | null;
   storeQuota?: number;
   extraCredits?: number;
+  lastFreeTokenAt?: string | null;
   nextBillingAt?: string | null;
   lastBilledAt?: string | null;
 }

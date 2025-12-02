@@ -56,7 +56,7 @@ export default function ReportsPage() {
   }, [user, selectedStore]);
 
   if (authLoading || !user) return <div className="p-6">로딩 중...</div>;
-
+  const isSubActive = (user as any)?.subscriptionStatus === "active";
   return (
     <div className="min-h-screen bg-gradient-to-b from-white via-slate-50 to-sky-50 pt-[60px] pb-[90px] px-4 space-y-4 animate-fadeIn">
       <div className="flex items-center justify-between">
@@ -79,28 +79,42 @@ export default function ReportsPage() {
       {/* 매장 카드 리스트 */}
       <div className="space-y-2">
         <p className="text-sm font-semibold text-gray-800">내 매장</p>
-        <div className="grid gap-2">
-          {stores.map((s) => (
+        {!isSubActive ? (
+          <div className="bg-white border border-gray-100 rounded-2xl shadow-sm p-4 text-center space-y-3">
+            <p className="text-sm text-gray-700">구독 중인 매장이 없습니다.</p>
             <button
-              key={s.id}
-              onClick={() => router.push(`/reports/store/${s.id}`)}
-              className={`w-full text-left border rounded-2xl p-3 shadow-sm ${
-                s.id === selectedStore
-                  ? "bg-blue-50 border-blue-200"
-                  : "bg-white border-gray-200"
-              }`}
+              onClick={() => router.push("/subscribe")}
+              className="w-full py-3 rounded-xl bg-blue-600 text-white text-sm font-semibold active:scale-95"
             >
-              <p className="text-sm font-semibold text-gray-900">{s.name || "매장"}</p>
-              <p className="text-xs text-gray-600 mt-1">연결된 플랫폼: 네이버(수집/분석)</p>
+              매장 정기 구독하기
             </button>
-          ))}
-        </div>
-        <button
-          onClick={() => router.push("/plans")}
-          className="w-full py-2 rounded-xl bg-gray-100 text-gray-800 text-sm active:scale-95"
-        >
-          다른 매장 구독하기
-        </button>
+          </div>
+        ) : (
+          <>
+            <div className="grid gap-2">
+              {stores.map((s) => (
+                <button
+                  key={s.id}
+                  onClick={() => router.push(`/reports/store/${s.id}`)}
+                  className={`w-full text-left border rounded-2xl p-3 shadow-sm ${
+                    s.id === selectedStore
+                      ? "bg-blue-50 border-blue-200"
+                      : "bg-white border-gray-200"
+                  }`}
+                >
+                  <p className="text-sm font-semibold text-gray-900">{s.name || "매장"}</p>
+                  <p className="text-xs text-gray-600 mt-1">연결된 플랫폼: 네이버(수집/분석)</p>
+                </button>
+              ))}
+            </div>
+            <button
+              onClick={() => router.push("/plans")}
+              className="w-full py-2 rounded-xl bg-gray-100 text-gray-800 text-sm active:scale-95"
+            >
+              다른 매장 구독하기
+            </button>
+          </>
+        )}
       </div>
 
       {message && <div className="text-xs text-gray-600">{message}</div>}

@@ -5,7 +5,7 @@ import useAuthGuard from "@/app/hooks/useAuthGuard";
 const mockNotices = [
   { title: "새 리뷰가 도착했어요", body: "네이버에서 5건의 신규 리뷰가 수집되었습니다.", time: "방금 전" },
   { title: "인사이트 업데이트", body: "키워드·감성 리포트가 새로 생성됐습니다.", time: "1시간 전" },
-  { title: "공지", body: "베타 기간 중 AI 요약 호출은 일일 200회로 제한됩니다.", time: "어제" },
+  { title: "공지", body: "베타 기간 중 요약 호출은 일일 200회로 제한됩니다.", time: "어제" },
 ];
 
 export default function NotificationsPage() {

@@ -3,9 +3,11 @@
 import { useState } from "react";
 import { api } from "@/lib/api";
 import { useRouter } from "next/navigation";
+import useAuth from "@/app/hooks/useAuth";
 
 export default function RegisterPage() {
   const router = useRouter();
+  const { login } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [password2, setPassword2] = useState("");
@@ -25,13 +27,14 @@ export default function RegisterPage() {
     setLoading(true);
 
     try {
-      await api.post("/auth/signup", {
+      const res = await api.post("/auth/signup", {
         email,
         password,
       });
 
-      alert("회원가입이 완료되었습니다! 로그인해주세요.");
-      router.push("/auth/login");
+      const { token, user } = res.data;
+      login(token, user);
+      router.push("/home");
     } catch (e: any) {
       alert("회원가입 실패. 이미 존재하는 이메일일 수 있습니다.");
     } finally {

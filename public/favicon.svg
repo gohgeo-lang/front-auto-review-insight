@@ -1,0 +1,5 @@
+<svg width="512" height="512" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="EMILY icon">
+  <rect x="24" y="24" width="464" height="464" rx="96" fill="#3088ff"/>
+  <text x="50%" y="52%" text-anchor="middle" font-family="Inter, Pretendard, Arial, sans-serif" font-size="120" font-weight="800" fill="#ffffff" dy="-12">EMILY</text>
+  <path d="M176 320c18 28 48 44 80 44s62-16 80-44" fill="none" stroke="#ffffff" stroke-width="22" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

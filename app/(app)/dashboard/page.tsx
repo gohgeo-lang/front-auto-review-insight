@@ -82,17 +82,39 @@ export default function Dashboard() {
 
     async function load() {
       try {
-        // 리뷰 전체 불러오기
-        const rv = await api.get<ReviewSummary[]>("/reviews", {
+        // 리뷰 불러오기 (storeId 기준, 없으면 전체로 한번 더 시도)
+        let rv = await api.get<ReviewSummary[]>("/reviews", {
           params: { storeId: selectedStoreId },
         });
-        setReviews(rv.data || []);
+        let reviewsData = rv.data || [];
+        if (reviewsData.length === 0) {
+          rv = await api.get<ReviewSummary[]>("/reviews").catch(() => ({ data: [] as any }));
+          reviewsData = rv.data || [];
+        }
+        setReviews(reviewsData);
 
-        // 사용자 인사이트 불러오기
-        const ins = await api
+        // 사용자 인사이트 불러오기 (storeId 기준, 없으면 전체로 한번 더 시도)
+        const isEmpty = (data?: InsightData | null) => {
+          if (!data) return true;
+          const buckets = [
+            data.insights,
+            data.positives,
+            data.negatives,
+            data.keywords,
+            data.tags,
+          ];
+          return !buckets.some((arr) => arr && arr.length);
+        };
+
+        let insRes = await api
           .get<InsightData>(`/insight`, { params: { storeId: selectedStoreId } })
           .catch(() => null);
-        setInsight(ins?.data || null);
+
+        if (isEmpty(insRes?.data)) {
+          insRes = await api.get<InsightData>(`/insight`).catch(() => null);
+        }
+
+        setInsight(insRes?.data || null);
 
         // 최신 리포트 가져오기 (있으면 1개)
         const rep = await api
@@ -162,6 +184,13 @@ export default function Dashboard() {
         irrelevant: map[d].irrelevant,
       }));
   }, [rangeFiltered]);
+  // 상세페이지와 동일하게: 인사이트의 상위 키워드 노출 개수 기준
+  // 상세페이지 기준: 인사이트 상위 5개 키워드 길이만 표시
+  const sentimentCounts = useMemo(() => {
+    const pos = (insight?.positives || []).slice(0, 5).length || 0;
+    const neg = (insight?.negatives || []).slice(0, 5).length || 0;
+    return { positive: pos, negative: neg, neutral: 0, irrelevant: 0 };
+  }, [insight]);
   const insightItems = [
     ...(insight?.insights || []),
     ...(insight?.positives || insight?.positive || []),
@@ -169,8 +198,31 @@ export default function Dashboard() {
     ...(insight?.keywords || []),
   ].filter(Boolean);
   const hasInsight = insightItems.length > 0;
+  const insightTop = useMemo(() => {
+    if (!insightItems.length) return [];
+    const items = [...insightItems];
+    if (items.length > 5) {
+      items.sort(() => 0.5 - Math.random());
+    }
+    return items.slice(0, 5);
+  }, [insightItems]);
   const currentStore = stores.find((s) => s.id === selectedStoreId);
   const noStore = !storeLoading && stores.length === 0;
+  const getShownCount = (key: "positive" | "negative" | "neutral" | "irrelevant") => {
+    if (key === "positive") return (insight?.positives || []).slice(0, 5).length || 0;
+    if (key === "negative") return (insight?.negatives || []).slice(0, 5).length || 0;
+    // 상세 페이지와 동일하게 중립/기타는 키워드가 없으므로 0으로 표시
+    return 0;
+  };
+  const totalsBySentiment = useMemo(
+    () => ({
+      positive: getShownCount("positive"),
+      negative: getShownCount("negative"),
+      neutral: getShownCount("neutral"),
+      irrelevant: getShownCount("irrelevant"),
+    }),
+    [getShownCount]
+  );
 
   // AuthContext 로딩 중에는 깜빡임 방지
   if (authLoading || !user) {
@@ -230,117 +282,39 @@ export default function Dashboard() {
       </section>
 
       {/* ===================== */}
-      {/* 2) AI 인사이트 */}
+      {/* 2) 인사이트 */}
       {/* ===================== */}
       <section>
-        {hasInsight ? (
-          <div className="bg-white border border-gray-100 shadow-xs rounded-xl p-4">
-            <Link
-              href="/insights"
-              className="flex items-center justify-between mb-2 text-sm font-semibold text-gray-600"
-            >
-              <span>인사이트</span>
-              <ChevronRightIcon className="w-5 h-5 text-gray-400" />
-            </Link>
-            <p className="text-sm text-gray-800">
-              {getInsightSnippet(insight)}
+        <div className="bg-white border border-gray-100 shadow-xs rounded-xl p-4">
+          <Link
+            href="/insights"
+            className="flex items-center justify-between mb-2 text-sm font-semibold text-gray-600"
+          >
+            <span>인사이트</span>
+            <ChevronRightIcon className="w-5 h-5 text-gray-400" />
+          </Link>
+          {hasInsight ? (
+            <p className="text-sm text-gray-800 line-clamp-3">
+              {insightTop.join(" · ")}
             </p>
-          </div>
-        ) : (
-          <div className="bg-white border border-gray-100 shadow-xs rounded-xl p-4 flex flex-col gap-3">
-            <Link
-              href="/insights"
-              className="flex items-center justify-between text-sm font-semibold text-gray-600"
-            >
-              <span>인사이트 (샘플)</span>
-              <ChevronRightIcon className="w-5 h-5 text-gray-400" />
-            </Link>
-            <ul className="text-sm text-gray-700 list-disc list-inside space-y-1">
-              {[
-                "고객들이 '친절'과 '청결'을 가장 많이 언급합니다.",
-                "커피 맛 만족도가 높지만, 가격 언급이 종종 등장합니다.",
-                "피크타임 대기 시간이 불만 포인트로 반복됩니다.",
-                "시그니처 메뉴에 대한 긍정 언급이 꾸준히 유지됩니다.",
-                "사진 리뷰 비중이 높아 비주얼이 구매 결정에 기여합니다.",
-              ].map((line, i) => (
-                <li key={i}>{line}</li>
-              ))}
-            </ul>
-          </div>
-        )}
+          ) : (
+            <p className="text-sm text-gray-500">데이터가 없습니다.</p>
+          )}
+        </div>
       </section>
 
-      {/* ===================== */}
-      {/* 3) 최신 리포트 */}
-      {/* ===================== */}
-      <section className="bg-white border border-gray-100 rounded-xl shadow-xs p-4 space-y-3">
-        <div className="flex items-center justify-between">
-          <div>
-            <p className="text-sm font-semibold text-gray-800">리포트</p>
-            <p className="text-xs text-gray-500">
-              최근 생성된 리포트를 확인하세요. 무료는 1회 체험 후 추가 리포트는 결제가 필요합니다.
-            </p>
-          </div>
-          <Link href="/reports" className="text-xs text-blue-600 flex items-center gap-1">
-            전체 보기 <ChevronRightIcon className="w-4 h-4" />
-          </Link>
-        </div>
-        {latestReport ? (
-          <button
-            onClick={() => (window.location.href = `/reports/${latestReport.id}`)}
-            className="w-full text-left border rounded-lg p-3 bg-gray-50 hover:bg-white active:scale-98 transition"
-          >
-            <div className="flex items-center justify-between">
-              <p className="text-sm font-semibold text-gray-800">
-                {labelPeriod(latestReport.period)} 리포트
-              </p>
-              <span className="text-xs text-gray-500">{latestReport.createdAt.slice(0, 10)}</span>
-            </div>
-            <p className="text-xs text-gray-600 mt-1">범위: 최근 {latestReport.rangeDays}일</p>
-            <p className="text-xs text-gray-600">
-              총 리뷰: {latestReport.payload?.totalReviews ?? "-"}
-            </p>
-          </button>
-        ) : (
-          <div className="text-sm text-gray-600">
-            리포트가 없습니다. 아래 버튼으로 생성해 보세요.
-          </div>
-        )}
-        <div className="flex items-center gap-2">
-          <button
-            onClick={async () => {
-              if (!selectedStoreId) return;
-              setReportMsg(null);
-              try {
-                await api.post("/reports/generate", {
-                  storeId: selectedStoreId,
-                  period: "monthly",
-                  rangeDays: 30,
-                });
-                setReportMsg("리포트 생성 요청 완료. 잠시 후 목록에 표시됩니다.");
-                const rep = await api.get<ReportSummary[]>("/reports", {
-                  params: { storeId: selectedStoreId },
-                });
-                setLatestReport(rep.data?.[0] || null);
-              } catch (err: any) {
-                const code = err?.response?.data?.error;
-                if (code === "REPORT_PAYMENT_REQUIRED") {
-                  setReportMsg("무료 리포트 1회를 사용했습니다. 추가 리포트는 결제가 필요합니다.");
-                } else {
-                  setReportMsg("리포트 생성 실패. 잠시 후 다시 시도하세요.");
-                }
-              }
-            }}
-            className="px-3 py-2 rounded-lg bg-blue-600 text-white text-sm font-semibold active:scale-95"
-          >
-            월간 리포트 생성
-          </button>
-          {reportMsg && <span className="text-xs text-gray-600">{reportMsg}</span>}
-        </div>
-      </section>
+      {/* 정기 리포트 CTA (고정 버튼) */}
+      <div className="fixed bottom-[60px] left-0 right-0 flex justify-center pointer-events-none">
+        <Link
+          href="/subscribe"
+          className="pointer-events-auto inline-flex items-center justify-center px-5 py-3 rounded-full bg-blue-600 text-white text-sm font-semibold shadow-lg active:scale-95"
+        >
+          구독하고 정기 리포트 받아보기
+        </Link>
+      </div>
 
       {/* 태그 */}
-          <div className="bg-white border border-gray-100 rounded-lg p-4 mb-4">
+      <div className="bg-white border border-gray-100 rounded-lg p-4 mb-4">
         <div className="flex items-center justify-between mb-2">
           <Link
             href="/insights/keywords"
@@ -351,12 +325,7 @@ export default function Dashboard() {
           </Link>
         </div>
         <div className="flex flex-wrap gap-2">
-          {(insight?.tags && insight.tags.length
-            ? insight.tags
-            : insight?.tag && insight.tag.length
-            ? insight.tag
-            : ["친절", "청결", "맛", "가격", "대기"]
-          )
+          {(insight?.tags && insight.tags.length ? insight.tags : [])
             .slice(0, 5)
             .map((tag: string, i: number) => (
               <Link
@@ -367,6 +336,9 @@ export default function Dashboard() {
                 {tag}
               </Link>
             ))}
+          {(!insight?.tags || !insight.tags.length) && (
+            <span className="text-xs text-gray-500">데이터가 없습니다.</span>
+          )}
         </div>
       </div>
 
@@ -382,25 +354,22 @@ export default function Dashboard() {
           <ChevronRightIcon className="w-5 h-5 text-gray-400" />
         </Link>
         <div className="bg-white border border-gray-100 rounded-xl shadow-sm p-3 space-y-3">
-          <RatingChart data={chartData} variant="sentiment" />
-          <div className="grid grid-cols-3 gap-3">
-            <InsightBox label="전체" value={rangeFiltered.length} />
-            <InsightBox
-              label="긍정"
-              value={
-                rangeFiltered.filter(
-                  (r: any) => (r.summary?.sentiment || "") === "positive"
-                ).length
-              }
-            />
-            <InsightBox
-              label="부정"
-              value={
-                rangeFiltered.filter(
-                  (r: any) => (r.summary?.sentiment || "") === "negative"
-                ).length
-              }
-            />
+          <RatingChart
+            data={[
+              {
+                positive: sentimentCounts.positive,
+                negative: sentimentCounts.negative,
+                neutral: sentimentCounts.neutral,
+                irrelevant: sentimentCounts.irrelevant,
+              },
+            ]}
+            variant="sentiment"
+          />
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            <InsightBox label="긍정" value={sentimentCounts.positive} />
+            <InsightBox label="중립" value={sentimentCounts.neutral} />
+            <InsightBox label="부정" value={sentimentCounts.negative} />
+            <InsightBox label="기타" value={sentimentCounts.irrelevant} />
           </div>
         </div>
       </section>
