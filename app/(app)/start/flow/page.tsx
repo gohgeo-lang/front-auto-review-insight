@@ -4,10 +4,12 @@ import { useState } from "react";
 import { api } from "@/lib/api";
 import { useRouter } from "next/navigation";
 import useAuthGuard from "@/app/hooks/useAuthGuard";
+import useAuth from "@/app/hooks/useAuth";
 
 type Step = 0 | 1 | 2 | 3 | 4;
 export default function StartFlow() {
   const { user, loading: authLoading } = useAuthGuard();
+  const { refresh } = useAuth();
   const router = useRouter();
   const [step, setStep] = useState<Step>(0);
   const [platform, setPlatform] = useState<"naver" | "google" | "kakao">("naver");
@@ -63,7 +65,6 @@ export default function StartFlow() {
   }
 
   async function runCrawl() {
-    setShowTokenModal(false);
     setLoading(true);
     setStatus("수집 중...");
     setLogs(["수집 중..."]);
@@ -73,28 +74,18 @@ export default function StartFlow() {
       const rangeDays = res.data?.rangeDays;
       const limitedBy = res.data?.limitedBy;
       const rangeText = rangeDays ? `${rangeDays}일` : "전체";
-      const limitText =
-        limitedBy === "limit_300"
-          ? "(무료 한도 300개)"
-          : limitedBy?.startsWith("days_")
-          ? `(범위 ${rangeText})`
-          : "";
+      const limitText = limitedBy?.startsWith("days_") ? `(범위 ${rangeText})` : "";
       const addedMsg = `수집 완료: ${added}개 ${limitText}`.trim();
       const logArr: string[] = res.data?.logs || [];
       const metaLog = `범위: ${rangeText}, 최대 300개 적용`;
       const finalLogs = logArr.length ? [...logArr, metaLog] : [addedMsg, metaLog];
       setLogs(finalLogs);
       setStatus(finalLogs[finalLogs.length - 1] || addedMsg);
+      if (refresh) await refresh();
       next();
     } catch (err) {
-      const code = (err as any)?.response?.data?.error;
-      if (code === "CREDITS_REQUIRED") {
-        setStatus("무료 한도를 모두 사용했습니다. 크레딧을 구매하거나 구독을 활성화하세요.");
-        setLogs(["크레딧 부족으로 수집 불가"]);
-      } else {
-        setStatus("수집 실패. placeId나 네트워크를 확인하세요.");
-        setLogs((prev) => [...(prev.length ? prev : ["수집 중..."]), "수집 실패"]);
-      }
+      setStatus("수집 실패. placeId나 네트워크를 확인하세요.");
+      setLogs((prev) => [...(prev.length ? prev : ["수집 중..."]), "수집 실패"]);
     } finally {
       setLoading(false);
     }
@@ -102,9 +93,10 @@ export default function StartFlow() {
 
   async function runAnalysis() {
     setLoading(true);
-    setStatus("분석 중...");
+    setStatus("1차 분석(요약) 중...");
     try {
       await api.post("/ai/summary/missing", { storeId });
+      if (refresh) await refresh();
       // 온보딩 완료 플래그
       try {
         await api.post("/auth/complete-onboarding");
@@ -126,7 +118,7 @@ export default function StartFlow() {
       } else {
         localStorage.setItem("onboarded", "true");
       }
-      setStatus("분석 완료! 대시보드로 이동할 수 있습니다.");
+      setStatus("1차 분석 완료! 리포트 생성은 완료 후 버튼으로 진행하세요.");
       next();
     } catch (err: any) {
       const code = err?.response?.data?.error;
@@ -134,6 +126,30 @@ export default function StartFlow() {
         setStatus("분석 실패: 쿼터를 확인하세요.");
       } else {
         setStatus("분석 실패. 잠시 후 다시 시도해주세요.");
+      }
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function runFinalReportAndGo() {
+    setLoading(true);
+    setStatus("인사이트 리포트 생성 중...");
+    try {
+      // 2차 리포트용 배치 요약 생성
+      await api.post("/ai/summary/batch", { storeId });
+      await api.post("/ai/insight/report", { storeId });
+      if (refresh) await refresh();
+      setStatus("리포트 생성 완료! 대시보드로 이동합니다.");
+      router.push("/dashboard");
+    } catch (err: any) {
+      const code = err?.response?.data?.error;
+      if (code === "NO_BATCH_SUMMARIES") {
+        setStatus("리뷰가 부족해 리포트를 만들 수 없습니다. 리뷰를 수집 후 다시 시도하세요.");
+      } else if (code === "OPENAI_QUOTA_EXCEEDED") {
+        setStatus("리포트 생성 실패: OpenAI 쿼터를 확인하세요.");
+      } else {
+        setStatus("리포트 생성 실패. 잠시 후 다시 시도해주세요.");
       }
     } finally {
       setLoading(false);
@@ -292,14 +308,17 @@ export default function StartFlow() {
         <div className="space-y-4 text-center">
           <h1 className="text-2xl font-bold">완료!</h1>
           <p className="text-sm text-gray-700">
-            수집과 분석이 완료되었습니다. 대시보드에서 결과를 확인하세요.
+            수집과 1차 분석이 완료되었습니다. 리포트를 생성하거나 바로 대시보드로 이동하세요.
           </p>
-          <button
-            onClick={() => router.push("/dashboard")}
-            className="w-full py-3 bg-green-600 text-white rounded-xl font-semibold text-sm"
-          >
-            대시보드로 이동
-          </button>
+          <div className="space-y-2">
+            <button
+              onClick={runFinalReportAndGo}
+              disabled={loading}
+              className="w-full py-3 bg-blue-600 text-white rounded-xl font-semibold text-sm disabled:opacity-60"
+            >
+              {loading ? "리포트 생성 중..." : "리포트 확인하기"}
+            </button>
+          </div>
         </div>
       )}
 

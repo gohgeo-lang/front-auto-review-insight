@@ -24,6 +24,13 @@ export default function StoresPage() {
   const [placeId, setPlaceId] = useState("");
   const [status, setStatus] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [showEdit, setShowEdit] = useState(false);
+  const [selected, setSelected] = useState<Store | null>(null);
+  const [editName, setEditName] = useState("");
+  const [editPlaceId, setEditPlaceId] = useState("");
+  const [editUrl, setEditUrl] = useState("");
+  const [editAutoCrawl, setEditAutoCrawl] = useState(true);
+  const [editAutoReport, setEditAutoReport] = useState(true);
 
   useEffect(() => {
     if (!user) return;
@@ -73,15 +80,61 @@ export default function StoresPage() {
       setPlaceId("");
       loadStores();
     } catch (err: any) {
-      const code = err?.response?.data?.error;
-      if (code === "STORE_LIMIT_EXCEEDED") {
-        setStatus(
-          "구독 한도 초과: 더 많은 매장을 등록하려면 구독을 업그레이드하세요."
-        );
-        setUpgradeNeeded(true);
-      } else {
-        setStatus("매장 등록 실패. 값을 확인하세요.");
-      }
+      setStatus("매장 등록 실패. 값을 확인하세요.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  const openEdit = (s: Store) => {
+    setSelected(s);
+    setEditName(s.name || "");
+    setEditPlaceId(s.placeId || "");
+    setEditUrl(s.url || "");
+    setEditAutoCrawl(s.autoCrawlEnabled !== false);
+    setEditAutoReport(s.autoReportEnabled !== false);
+    setShowEdit(true);
+  };
+
+  const closeEdit = () => {
+    setShowEdit(false);
+    setSelected(null);
+  };
+
+  async function handleUpdate() {
+    if (!selected) return;
+    setLoading(true);
+    setStatus("매장 정보 수정 중...");
+    try {
+      await api.put(`/store/${selected.id}`, {
+        name: editName || null,
+        placeId: editPlaceId || null,
+        url: editUrl || null,
+        autoCrawlEnabled: editAutoCrawl,
+        autoReportEnabled: editAutoReport,
+      });
+      setStatus("매장 정보가 수정되었습니다.");
+      await loadStores();
+      closeEdit();
+    } catch {
+      setStatus("수정 실패. 값을 확인하세요.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleDelete(id: string) {
+    const ok = confirm("매장과 관련 리뷰/리포트를 모두 삭제할까요?");
+    if (!ok) return;
+    setLoading(true);
+    setStatus("삭제 중...");
+    try {
+      await api.delete(`/store/${id}`);
+      setStatus("삭제되었습니다.");
+      await loadStores();
+      if (selected?.id === id) closeEdit();
+    } catch {
+      setStatus("삭제 실패. 다시 시도하세요.");
     } finally {
       setLoading(false);
     }
@@ -151,12 +204,105 @@ export default function StoresPage() {
                   <Badge label="Naver" />
                   <span>등록일: {(s.createdAt || "").slice(0, 10)}</span>
                 </div>
-                <p className="text-xs text-gray-600">자동 수집/리포트 설정은 향후 지원 예정입니다.</p>
+                <p className="text-xs text-gray-600">
+                  자동 수집/리포트 설정은 향후 지원 예정입니다. 연결된 플랫폼을 추가로 등록하거나 정보를 수정할 수 있습니다.
+                </p>
+                <div className="flex items-center gap-2 text-xs">
+                  <button
+                    onClick={() => openEdit(s)}
+                    className="px-3 py-2 rounded-lg bg-white border border-gray-200 text-gray-800 active:scale-95"
+                  >
+                    정보 수정
+                  </button>
+                  <button
+                    onClick={() => handleDelete(s.id)}
+                    className="px-3 py-2 rounded-lg bg-red-50 border border-red-100 text-red-600 active:scale-95"
+                  >
+                    삭제
+                  </button>
+                </div>
               </div>
             ))}
           </div>
         )}
       </section>
+
+      {showEdit && selected && (
+        <div className="fixed inset-0 z-[9999] bg-black/40 backdrop-blur-sm flex items-center justify-center px-4">
+          <div className="bg-white rounded-2xl shadow-lg w-full max-w-md p-5 space-y-3">
+            <h3 className="text-lg font-semibold text-gray-900">매장 정보 수정</h3>
+            <div className="space-y-2">
+              <label className="text-xs text-gray-600">상호명</label>
+              <input
+                type="text"
+                value={editName}
+                onChange={(e) => setEditName(e.target.value)}
+                className="w-full border rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-blue-400"
+              />
+              <label className="text-xs text-gray-600">네이버 placeId</label>
+              <input
+                type="text"
+                value={editPlaceId}
+                onChange={(e) => setEditPlaceId(e.target.value)}
+                className="w-full border rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-blue-400"
+              />
+              <label className="text-xs text-gray-600">매장 URL (네이버)</label>
+              <input
+                type="text"
+                value={editUrl}
+                onChange={(e) => setEditUrl(e.target.value)}
+                className="w-full border rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-blue-400"
+              />
+              <div className="grid grid-cols-2 gap-2 text-sm text-gray-700">
+                <label className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={editAutoCrawl}
+                    onChange={(e) => setEditAutoCrawl(e.target.checked)}
+                  />
+                  <span>자동 수집</span>
+                </label>
+                <label className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={editAutoReport}
+                    onChange={(e) => setEditAutoReport(e.target.checked)}
+                  />
+                  <span>자동 리포트</span>
+                </label>
+              </div>
+              <div className="text-xs text-gray-500 space-y-1">
+                <p>기타 플랫폼 연결 (준비 중):</p>
+                <div className="flex gap-2 flex-wrap">
+                  <Badge label="Google (준비 중)" />
+                  <Badge label="Kakao (준비 중)" />
+                </div>
+              </div>
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={handleUpdate}
+                disabled={loading}
+                className="flex-1 py-2 rounded-lg bg-blue-600 text-white text-sm font-semibold active:scale-95 disabled:opacity-60"
+              >
+                {loading ? "저장 중..." : "저장"}
+              </button>
+              <button
+                onClick={closeEdit}
+                className="px-3 py-2 rounded-lg bg-gray-100 text-sm text-gray-800 active:scale-95"
+              >
+                닫기
+              </button>
+            </div>
+            <button
+              onClick={() => handleDelete(selected.id)}
+              className="w-full py-2 rounded-lg bg-red-50 border border-red-100 text-sm text-red-600 active:scale-95"
+            >
+              매장 삭제
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

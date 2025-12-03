@@ -52,53 +52,43 @@ export default function InsightsPage() {
         />
         <InsightSection
           title="강점"
-          tags={insight?.strengths?.keywords || insight?.positives || []}
+          tags={
+            insight?.strengths?.keywords ||
+            insight?.structured?.positives?.map((p: any) => p.title) ||
+            insight?.positives ||
+            []
+          }
           solutions={
             insight?.strengths?.comment || insight?.strengths?.solutions?.length
               ? [
                   ...(insight?.strengths?.comment ? [insight.strengths.comment] : []),
                   ...(insight?.strengths?.solutions || []),
                 ]
-              : insight?.positives || []
+              : insight?.structured?.positives?.map((p: any) => p.reason) ||
+                insight?.positives ||
+                []
           }
         />
         <InsightSection
           title="개선점"
-          tags={insight?.improvements?.keywords || insight?.negatives || []}
+          tags={
+            insight?.improvements?.keywords ||
+            insight?.structured?.negatives?.map((p: any) => p.title) ||
+            insight?.negatives ||
+            []
+          }
           solutions={
             insight?.improvements?.comment || insight?.improvements?.solutions?.length
               ? [
                   ...(insight?.improvements?.comment ? [insight.improvements.comment] : []),
                   ...(insight?.improvements?.solutions || []),
                 ]
-              : insight?.negatives || []
+              : insight?.structured?.negatives?.map((p: any) => p.reason) ||
+                insight?.solutions ||
+                insight?.negatives ||
+                []
           }
         />
-        <InsightSection
-          title="트렌드"
-          tags={insight?.trendsDetail?.keywords || insight?.trends || []}
-          solutions={
-            insight?.trendsDetail?.comment || insight?.trendsDetail?.solutions?.length
-              ? [
-                  ...(insight?.trendsDetail?.comment ? [insight.trendsDetail.comment] : []),
-                  ...(insight?.trendsDetail?.solutions || []),
-                ]
-              : insight?.trends || []
-          }
-        />
-        <InsightSection
-          title="최근 리뷰 요약"
-          tags={(insight?.tags || insight?.tag || []).slice(0, 5)}
-          solutions={insight?.recentSummaries || []}
-        />
-        <div className="text-sm text-gray-800 leading-relaxed">
-          <p className="font-semibold mb-1">매장 설명</p>
-          <p>
-            {insight?.description ||
-              insight?.structured?.shopCharacter ||
-              "분석된 데이터가 없습니다."}
-          </p>
-        </div>
       </section>
     </div>
   );
@@ -141,7 +131,7 @@ function InsightSection({
       <div className="space-y-1 text-sm text-gray-800">
         {(solutions || []).map((s, i) => (
           <p key={i} className="leading-relaxed">
-            • {s}
+            {s}
           </p>
         ))}
       </div>
