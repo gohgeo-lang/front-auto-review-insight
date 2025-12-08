@@ -21,7 +21,8 @@ export default function LoginPage() {
 
   async function handleLogin() {
     if (!email || !password) {
-      alert("이메일과 비밀번호를 입력해주세요.");
+      alert("관리자 계정이 없다면 관리자용 회원가입으로 이동합니다.");
+      router.push("/auth/register");
       return;
     }
 
@@ -51,45 +52,48 @@ export default function LoginPage() {
       <h1 className="text-2xl font-bold mb-2">로그인</h1>
       <p className="text-gray-600 text-sm mb-6">EMILY에서 고객반응을 분석해보세요.</p>
 
-      <div className="space-y-4">
-        <input
-          type="email"
-          placeholder="이메일"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          className="input-base"
-        />
-
-        <input
-          type="password"
-          placeholder="비밀번호"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          className="input-base"
-        />
-
+      <div className="space-y-3">
         <button
-          onClick={handleLogin}
-          disabled={loading}
-          className="btn-primary w-full active:scale-95 transition"
+          onClick={() => alert("네이버 로그인 연동 예정입니다.")}
+          className="w-full py-3 bg-green-500 text-white rounded-xl font-semibold text-sm active:scale-95"
         >
-          {loading ? "로그인 중..." : "로그인"}
+          네이버로 로그인
+        </button>
+        <button
+          onClick={() => alert("구글 로그인 연동 예정입니다.")}
+          className="w-full py-3 bg-red-500 text-white rounded-xl font-semibold text-sm active:scale-95"
+        >
+          구글로 로그인
         </button>
       </div>
 
-      <div className="text-center mt-6 space-y-2">
-        <p
-          onClick={() => router.push("/auth/register")}
-          className="text-sm text-gray-600 cursor-pointer"
-        >
-          아직 계정이 없으신가요?{" "}
-          <span className="text-blue-500 font-medium">회원가입</span>
-        </p>
-
-        <p className="text-xs text-gray-500 underline cursor-pointer">
-          아이디 또는 비밀번호를 잊으셨나요?
-        </p>
+      <div className="mt-6 border-t pt-4 space-y-2">
+        <p className="text-xs text-gray-500 font-semibold">개발자/관리자용 테스트 로그인</p>
+        <div className="space-y-3">
+          <input
+            type="email"
+            placeholder="이메일"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            className="input-base"
+          />
+          <input
+            type="password"
+            placeholder="비밀번호"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            className="input-base"
+          />
+          <button
+            onClick={handleLogin}
+            disabled={loading}
+            className="btn-primary w-full active:scale-95 transition"
+          >
+            {loading ? "로그인 중..." : "관리자 로그인"}
+          </button>
+        </div>
       </div>
+
     </div>
   );
 }

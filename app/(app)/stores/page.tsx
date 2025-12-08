@@ -10,6 +10,9 @@ type Store = {
   name?: string | null;
   url?: string | null;
   placeId?: string | null;
+  naverPlaceId?: string | null;
+  googlePlaceId?: string | null;
+  kakaoPlaceId?: string | null;
   createdAt?: string;
   autoCrawlEnabled?: boolean;
   autoReportEnabled?: boolean;
@@ -22,6 +25,8 @@ export default function StoresPage() {
   const didSync = useRef(false);
   const [url, setUrl] = useState("");
   const [placeId, setPlaceId] = useState("");
+  const [googleId, setGoogleId] = useState("");
+  const [kakaoId, setKakaoId] = useState("");
   const [status, setStatus] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [showEdit, setShowEdit] = useState(false);
@@ -67,17 +72,22 @@ export default function StoresPage() {
   }
 
   async function handleSave() {
-    if (!placeId) return alert("placeId를 입력하세요.");
+    if (!placeId && !googleId && !kakaoId) return alert("placeId를 입력하세요.");
     setLoading(true);
     setStatus("매장 등록 중...");
     try {
       await api.post("/store/register-store", {
         url,
         placeId,
+        naverPlaceId: placeId,
+        googlePlaceId: googleId || undefined,
+        kakaoPlaceId: kakaoId || undefined,
       });
       setStatus("매장이 등록되었습니다.");
       setUrl("");
       setPlaceId("");
+      setGoogleId("");
+      setKakaoId("");
       loadStores();
     } catch (err: any) {
       setStatus("매장 등록 실패. 값을 확인하세요.");
@@ -148,7 +158,7 @@ export default function StoresPage() {
         <div>
           <h1 className="text-2xl font-bold">채널 연결</h1>
           <p className="text-sm text-gray-600">
-            네이버 placeId를 등록해 채널을 연결하세요. (구글/카카오 준비 중)
+            네이버/구글 placeId를 등록해 채널을 연결하세요. (카카오는 준비 중)
           </p>
         </div>
       </section>
@@ -175,9 +185,32 @@ export default function StoresPage() {
           type="text"
           value={placeId}
           onChange={(e) => setPlaceId(e.target.value)}
-          placeholder="placeId 직접 입력"
+          placeholder="네이버 placeId 입력"
           className="w-full border rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-blue-400"
         />
+        <div className="grid gap-2">
+          <div className="border rounded-xl p-3 bg-gray-50">
+            <p className="text-sm font-semibold text-gray-800">구글 지도 place_id</p>
+            <input
+              type="text"
+              value={googleId}
+              onChange={(e) => setGoogleId(e.target.value)}
+              placeholder="구글 place_id 입력"
+              className="mt-2 w-full border rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-blue-400"
+            />
+          </div>
+          <div className="border rounded-xl p-3 bg-gray-50 opacity-60">
+            <p className="text-sm font-semibold text-gray-800">카카오맵</p>
+            <input
+              type="text"
+              value={kakaoId}
+              onChange={(e) => setKakaoId(e.target.value)}
+              placeholder="준비 중"
+              disabled
+              className="mt-2 w-full border rounded-xl px-3 py-2 text-sm bg-gray-100"
+            />
+          </div>
+        </div>
         <button
           onClick={handleSave}
           disabled={loading}
@@ -185,7 +218,7 @@ export default function StoresPage() {
         >
           {loading ? "등록 중..." : "매장 저장"}
         </button>
-        {status && <p className="text-xs text-gray-600">{status}</p>}
+        {status && <p className="text-xs text-gray-600">{String(status)}</p>}
       </section>
 
       <section className="bg-white border border-gray-100 rounded-2xl shadow-sm p-4 space-y-3">
@@ -201,11 +234,20 @@ export default function StoresPage() {
               >
                 <p className="font-semibold">{s.name || "매장"}</p>
                 <div className="flex items-center gap-2 text-[11px] text-gray-600">
-                  <Badge label="Naver" />
+                  {s.naverPlaceId && <Badge label="Naver" />}
+                  {s.googlePlaceId && <Badge label="Google" />}
+                  {s.kakaoPlaceId && <Badge label="Kakao" />}
                   <span>등록일: {(s.createdAt || "").slice(0, 10)}</span>
                 </div>
                 <p className="text-xs text-gray-600">
-                  자동 수집/리포트 설정은 향후 지원 예정입니다. 연결된 플랫폼을 추가로 등록하거나 정보를 수정할 수 있습니다.
+                  연결된 플랫폼:{" "}
+                  {[
+                    s.naverPlaceId ? "네이버" : null,
+                    s.googlePlaceId ? "구글" : null,
+                    s.kakaoPlaceId ? "카카오" : null,
+                  ]
+                    .filter(Boolean)
+                    .join(" / ") || "없음"}
                 </p>
                 <div className="flex items-center gap-2 text-xs">
                   <button

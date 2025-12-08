@@ -29,13 +29,24 @@ export default function KeywordPage() {
 
   const keywordCounts: [string, number][] = useMemo(() => {
     if (insight?.keywordsTop50?.length) {
-      return insight.keywordsTop50.map((k: any) => [k.keyword || k, k.count || 0]);
+      return insight.keywordsTop50.map((k: any) => [k.keyword || k, k.count ?? k.freq ?? 0]);
+    }
+    if (insight?.keywords?.length) {
+      return insight.keywords.map((k: any) =>
+        Array.isArray(k) ? [k[0], k[1] ?? 0] : [k, 0]
+      );
     }
     return [];
   }, [insight]);
 
   const categorized = useMemo(() => {
     return insight?.autoCategories || [];
+  }, [insight]);
+
+  const solutions = useMemo(() => {
+    if (insight?.keywordSolutions?.length) return insight.keywordSolutions;
+    if (insight?.solutions?.length) return insight.solutions;
+    return [];
   }, [insight]);
 
   if (authLoading || !user) {
@@ -58,16 +69,20 @@ export default function KeywordPage() {
 
       <section className="bg-white border border-gray-100 rounded-xl shadow-xs p-4">
         <h2 className="text-base font-semibold mb-3">상위 키워드 Top 50</h2>
-        <div className="flex flex-wrap gap-2">
-          {(keywordCounts.length ? keywordCounts : []).map(([k, c]) => (
-            <span
-              key={k}
-              className="px-3 py-1 rounded-full bg-gray-100 text-gray-800 text-sm"
-            >
-              {k} <span className="text-xs text-gray-500">×{c}</span>
-            </span>
-          ))}
-        </div>
+        {keywordCounts.length ? (
+          <div className="flex flex-wrap gap-2">
+            {keywordCounts.map(([k, c]) => (
+              <span
+                key={k}
+                className="px-3 py-1 rounded-full bg-gray-100 text-gray-800 text-sm"
+              >
+                {k} <span className="text-xs text-gray-500">×{c}</span>
+              </span>
+            ))}
+          </div>
+        ) : (
+          <p className="text-xs text-gray-500">데이터가 없습니다.</p>
+        )}
       </section>
 
       <section className="bg-white border border-gray-100 rounded-xl shadow-xs p-4 space-y-3">
@@ -94,8 +109,8 @@ export default function KeywordPage() {
       <section className="bg-white border border-gray-100 rounded-xl shadow-xs p-4 space-y-2">
         <h2 className="text-base font-semibold">추천 솔루션</h2>
         <ul className="text-sm text-gray-800 list-disc list-inside space-y-1">
-          {insight?.keywordSolutions?.length ? (
-            insight.keywordSolutions.map((s: string, i: number) => <li key={i}>{s}</li>)
+          {solutions.length ? (
+            solutions.map((s: string, i: number) => <li key={i}>{s}</li>)
           ) : (
             <li className="text-xs text-gray-500">데이터가 없습니다.</li>
           )}

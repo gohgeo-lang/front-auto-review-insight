@@ -15,7 +15,7 @@ export default function useAuthGuard(options?: GuardOptions) {
   const redirected = useRef(false);
   const [checking, setChecking] = useState(true);
 
-  const fallback = options?.fallback || "/auth/login";
+  const fallback = options?.fallback || "/onboarding/intro";
   const requireOnboarded = options?.requireOnboarded || false;
 
   useEffect(() => {

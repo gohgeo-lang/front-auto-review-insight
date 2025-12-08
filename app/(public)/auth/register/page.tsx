@@ -1,9 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { api } from "@/lib/api";
 import { useRouter } from "next/navigation";
 import useAuth from "@/app/hooks/useAuth";
+import { api } from "@/lib/api";
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -13,46 +13,17 @@ export default function RegisterPage() {
   const [password2, setPassword2] = useState("");
   const [loading, setLoading] = useState(false);
 
-  async function handleRegister() {
-    if (!email || !password || !password2) {
-      alert("모든 필드를 입력해주세요.");
-      return;
-    }
-
-    if (password !== password2) {
-      alert("비밀번호가 일치하지 않습니다.");
-      return;
-    }
-
-    setLoading(true);
-
-    try {
-      const res = await api.post("/auth/signup", {
-        email,
-        password,
-      });
-
-      const { token, user } = res.data;
-      login(token, user);
-      router.push("/home");
-    } catch (e: any) {
-      alert("회원가입 실패. 이미 존재하는 이메일일 수 있습니다.");
-    } finally {
-      setLoading(false);
-    }
-  }
-
   return (
     <div className="px-4 py-8">
       <h1 className="text-2xl font-bold mb-2">회원가입</h1>
       <p className="text-gray-600 text-sm mb-6">
-        간단한 정보 입력으로 바로 시작할 수 있어요.
+        네이버/구글 로그인이 기본이며, 관리자/개발자용 계정만 여기서 이메일/비밀번호로 생성하세요.
       </p>
 
       <div className="space-y-4">
         <input
           type="email"
-          placeholder="이메일 주소"
+          placeholder="관리자 이메일"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           className="w-full border rounded-xl px-4 py-3 focus:ring-2 focus:ring-blue-400 focus:outline-none"
@@ -75,15 +46,35 @@ export default function RegisterPage() {
         />
 
         <button
-          onClick={handleRegister}
+          onClick={async () => {
+            if (!email || !password || !password2) {
+              alert("모든 필드를 입력해주세요.");
+              return;
+            }
+            if (password !== password2) {
+              alert("비밀번호가 일치하지 않습니다.");
+              return;
+            }
+            setLoading(true);
+            try {
+              const res = await api.post("/auth/signup", { email, password });
+              const { token, user } = res.data;
+              login(token, user);
+              router.push("/home");
+            } catch {
+              alert("회원가입 실패. 이미 존재하는 이메일일 수 있습니다.");
+            } finally {
+              setLoading(false);
+            }
+          }}
           disabled={loading}
-          className="w-full py-3 bg-blue-500 text-white rounded-xl font-semibold "
+          className="w-full py-3 bg-blue-500 text-white rounded-xl font-semibold active:scale-95 transition"
         >
-          {loading ? "가입 중..." : "회원가입"}
+          {loading ? "가입 중..." : "관리자 계정 생성"}
         </button>
       </div>
 
-      <div className="text-center mt-6">
+      <div className="text-center mt-6 space-y-2">
         <p
           onClick={() => router.push("/auth/login")}
           className="text-sm text-gray-600 cursor-pointer"

@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import useAuthGuard from "@/app/hooks/useAuthGuard";
 import useAuth from "@/app/hooks/useAuth";
 import { api } from "@/lib/api";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 
 type Store = {
   id: string;
@@ -12,12 +12,16 @@ type Store = {
   placeId?: string | null;
   autoCrawlEnabled?: boolean;
   autoReportEnabled?: boolean;
+  naverPlaceId?: string | null;
+  googlePlaceId?: string | null;
+  kakaoPlaceId?: string | null;
 };
 
 export default function MyPage() {
   const { loading: authLoading, user } = useAuthGuard();
-  const { logout } = useAuth();
+  const { logout, refresh } = useAuth();
   const router = useRouter();
+  const search = useSearchParams();
   const [stores, setStores] = useState<Store[]>([]);
   const [showSettings, setShowSettings] = useState(false);
   const [activeTab, setActiveTab] = useState<"recent" | "recurring">("recent");
@@ -33,6 +37,12 @@ export default function MyPage() {
   const [scanStore, setScanStore] = useState<Store | null>(null);
   const [scanLoading, setScanLoading] = useState(false);
   const [showChargeModal, setShowChargeModal] = useState(false);
+  const [subscribingStore, setSubscribingStore] = useState<string | null>(null);
+  const [showStoreModal, setShowStoreModal] = useState(false);
+  const [selectedStore, setSelectedStore] = useState<Store | null>(null);
+  const [scanLogs, setScanLogs] = useState<string[]>([]);
+  const [scanStatus, setScanStatus] = useState<string | null>(null);
+  const [showScanProgress, setShowScanProgress] = useState<null | "crawl" | "analysis">(null);
 
   useEffect(() => {
     async function loadStores() {
@@ -45,6 +55,18 @@ export default function MyPage() {
     }
     loadStores();
   }, []);
+
+  useEffect(() => {
+  // 최신 구독/이용권 상태 동기화
+    refresh?.().catch(() => {});
+  }, [refresh]);
+
+  useEffect(() => {
+    const tab = search?.get("tab");
+    if (tab === "subscription") {
+      setActiveTab("recurring");
+    }
+  }, [search]);
 
   useEffect(() => {
     setName(user?.name || "");
@@ -84,6 +106,79 @@ export default function MyPage() {
     }
   };
 
+  async function runScanFlow(store: Store, pidNaver?: string | null, pidGoogle?: string | null) {
+    const targets: Array<["naver" | "google", string]> = [];
+    if (pidNaver) targets.push(["naver", pidNaver]);
+    if (pidGoogle) targets.push(["google", pidGoogle]);
+    if (!targets.length) {
+      setScanMessage("placeId가 없습니다. 채널을 다시 등록해주세요.");
+      return;
+    }
+
+    setScanLoading(true);
+    setShowScanProgress("crawl");
+    setScanStatus("수집 중...");
+    setScanLogs([]); // 기존 수집 로그 초기화
+
+    const newLogs: string[] = [];
+    const runSingle = async (endpoint: string, pid: string, label: string, skipCharge?: boolean) => {
+      setScanStatus(`[${label}] 수집 중...`);
+      setScanLogs((prev) => [...(prev.length ? prev : []), `[${label}] 수집 시작`]);
+      const res = await api.post(endpoint, { placeId: pid, storeId: store.id, skipCharge });
+      const added = res.data?.added ?? 0;
+      const rangeDays = res.data?.rangeDays;
+      const limitedBy = res.data?.limitedBy;
+      const rangeText = rangeDays ? `${rangeDays}일` : "전체";
+      const limitText = limitedBy?.startsWith("days_") ? `(범위 ${rangeText})` : "";
+      const addedMsg = `[${label}] 수집 완료: ${added}개 ${limitText}`.trim();
+      const logArr: string[] = res.data?.logs || [];
+      const metaLog = `[${label}] 범위: ${rangeText}, 최대 300개 적용`;
+      newLogs.push(...(logArr.length ? logArr.map((l) => `[${label}] ${l}`) : [addedMsg]), metaLog);
+      setScanLogs((prev) => [...prev, ...newLogs]);
+    };
+
+    try {
+      let charged = false;
+      for (const [platformName, pid] of targets) {
+        const endpoint = platformName === "google" ? "/crawler/google" : "/crawler/naver";
+        await runSingle(endpoint, pid, platformName === "google" ? "구글" : "네이버", charged);
+        charged = true;
+      }
+      setScanLogs(newLogs.length ? newLogs : ["수집 완료"]);
+      setScanStatus(newLogs[newLogs.length - 1] || "수집 완료");
+
+      setShowScanProgress("analysis");
+      setScanStatus("1차 분석(요약) 중...");
+      setScanLogs((prev) => [...prev, "1차 분석(요약) 실행"]);
+      await api.post("/ai/summary/missing", { storeId: store.id });
+      setScanStatus("배치 요약 생성 중...");
+      setScanLogs((prev) => [...prev, "배치 요약 생성"]);
+      await api.post("/ai/summary/batch", { storeId: store.id });
+      setScanStatus("2차 인사이트 리포트 생성 중...");
+      setScanLogs((prev) => [...prev, "2차 인사이트 리포트 생성"]);
+      await api.post("/ai/insight/report", { storeId: store.id });
+      await refresh?.();
+
+      setScanStatus("분석 및 리포트 생성 완료! 대시보드로 이동합니다.");
+      setShowScanProgress(null);
+      router.push(`/dashboard?storeId=${store.id}`);
+    } catch (err: any) {
+      const code = err?.response?.data?.error;
+      if (code === "OPENAI_QUOTA_EXCEEDED") {
+        setScanStatus("분석 실패: 쿼터를 확인하세요.");
+      } else if (code === "CREDITS_REQUIRED") {
+        setScanStatus("이용권이 부족합니다. 충전 후 이용해주세요.");
+        setShowChargeModal(true);
+      } else {
+        setScanStatus("수집/분석 실패. 잠시 후 다시 시도해주세요.");
+      }
+      setShowScanProgress(null);
+    } finally {
+      setScanLoading(false);
+      await refresh?.(); // 토큰/유저 최신화
+    }
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-white via-slate-50 to-sky-50 pt-[60px] pb-[90px] px-4 space-y-6 animate-fadeIn">
       <h1 className="text-xl font-bold text-gray-900">마이페이지</h1>
@@ -110,26 +205,62 @@ export default function MyPage() {
             정보 수정
           </button>
         </div>
-          <div className="flex items-center justify-between text-sm text-gray-700">
-            <div>
-              <p className="text-xs text-gray-500">이용권 상태</p>
-            <p className="text-sm font-semibold text-blue-700">
-              {(user as any)?.subscriptionStatus === "active" ? "구독(유료)" : "무료 체험"}
-            </p>
-          </div>
+        <div className="flex items-center justify-between text-sm text-gray-700 pt-2 border-t border-gray-100">
           <div className="flex items-center gap-2">
-            <span className="text-[11px] text-gray-600">
-              토큰 { (user as any)?.extraCredits ?? 0 }개 보유
+            <span className="text-sm text-gray-700">
+              현재 보유 이용권: { (user as any)?.extraCredits ?? 0 }개
             </span>
-            <button
-              onClick={() => router.push("/credits")}
-              className="px-3 py-2 rounded-lg border border-gray-200 text-xs text-gray-800 active:scale-95"
-            >
-              충전하기
-            </button>
           </div>
+          <button
+            onClick={() => router.push("/credits")}
+            className="px-3 py-2 rounded-lg border border-gray-200 text-xs text-gray-800 active:scale-95"
+          >
+            충전하기
+          </button>
         </div>
       </section>
+
+      {showStoreModal && selectedStore && (
+        <div className="fixed inset-0 z-[9999] bg-black/40 backdrop-blur-sm flex items-center justify-center px-4">
+          <div className="bg-white rounded-2xl shadow-lg w-full max-w-sm p-5 space-y-3">
+            <h3 className="text-lg font-semibold text-gray-900">
+              {selectedStore.name || "매장 정보"}
+            </h3>
+            <div className="text-sm text-gray-700 space-y-1">
+              <p>
+                연결된 플랫폼: <PlatformList store={selectedStore} />
+              </p>
+              <p className="text-xs text-gray-500">
+                자동 리포트: {selectedStore.autoReportEnabled ? "ON" : "OFF"}
+              </p>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                onClick={async () => {
+                  const ok = confirm("매장과 관련 리뷰/리포트를 모두 삭제할까요?");
+                  if (!ok || !selectedStore) return;
+                  try {
+                    await api.delete(`/store/${selectedStore.id}`);
+                    setStores((prev) => prev.filter((st) => st.id !== selectedStore.id));
+                    setShowStoreModal(false);
+                  } catch {
+                    alert("삭제에 실패했습니다. 다시 시도해주세요.");
+                  }
+                }}
+                className="w-full py-2 rounded-lg bg-red-50 border border-red-100 text-sm text-red-600 active:scale-95"
+              >
+                매장 삭제
+              </button>
+              <button
+                onClick={() => setShowStoreModal(false)}
+                className="w-full py-2 rounded-lg bg-gray-100 text-sm text-gray-800 active:scale-95"
+              >
+                닫기
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <section className="bg-white rounded-2xl border border-gray-100 shadow-xs p-4 space-y-3">
         <div className="flex items-center justify-between text-sm font-semibold text-gray-800">
@@ -168,10 +299,29 @@ export default function MyPage() {
                   className="border border-gray-100 rounded-xl p-3 bg-gray-50 shadow-md text-sm text-gray-800 space-y-2"
                 >
                   <div className="flex items-center justify-between">
-                    <div>
+                    <div className="flex items-center gap-2">
                       <p className="font-semibold">{s.name || "매장"}</p>
-                      <p className="text-xs text-gray-600">placeId: {s.placeId || "-"}</p>
+                      <button
+                        aria-label="매장 정보"
+                        onClick={() => {
+                          setSelectedStore(s);
+                          setShowStoreModal(true);
+                        }}
+                        className="text-gray-500 hover:text-gray-700"
+                      >
+                        <ChevronRightIcon className="w-4 h-4" />
+                      </button>
                     </div>
+                    <p className="text-xs text-gray-600">
+                      연결된 플랫폼:{" "}
+                      {[
+                        (s as any).naverPlaceId || (s as any).placeId ? "네이버" : null,
+                        (s as any).googlePlaceId ? "구글" : null,
+                        (s as any).kakaoPlaceId ? "카카오" : null,
+                      ]
+                        .filter(Boolean)
+                        .join(" / ") || "없음"}
+                    </p>
                   </div>
                   <div className="space-y-2">
                     <button
@@ -183,9 +333,13 @@ export default function MyPage() {
                     <div className="grid grid-cols-2 gap-2">
                       <button
                         onClick={() => {
-                          if ((user as any)?.subscriptionStatus === "active") {
+                          if (
+                            (user as any)?.subscriptionStatus === "active" &&
+                            s.autoReportEnabled === true
+                          ) {
                             router.push(`/reports/store/${s.id}`);
                           } else {
+                            setSubscribingStore(s.id);
                             router.push(`/subscribe/product?storeId=${s.id}`);
                           }
                         }}
@@ -197,6 +351,8 @@ export default function MyPage() {
                         onClick={() => {
                           setScanStore(s);
                           setScanMessage(null);
+                          setScanLogs([]);
+                          setScanStatus(null);
                           setShowScanModal(true);
                         }}
                         className="w-full px-3 py-2 rounded-lg bg-white border border-gray-200 text-xs active:scale-95"
@@ -221,22 +377,41 @@ export default function MyPage() {
                   정기 리포트 구독하기
                 </button>
               </div>
-            ) : stores.length === 0 ? (
-              <p className="text-sm text-gray-500">정기 발급 중인 매장이 없습니다.</p>
-            ) : (
-              stores.map((s) => (
+            ) : stores.filter((s) => s.autoReportEnabled === true).length === 0 ? (
+              <div className="text-center space-y-3 py-4">
+                <p className="text-sm text-gray-600">구독 중인 매장이 없습니다.</p>
                 <button
-                  key={s.id}
-                  onClick={() => router.push(`/reports/store/${s.id}`)}
-                  className="w-full text-left border border-gray-100 rounded-xl p-3 bg-white shadow-xs text-sm text-gray-800"
+                  onClick={() => router.push("/subscribe")}
+                  className="w-full py-2 rounded-xl bg-blue-600 text-white text-sm font-semibold active:scale-95"
                 >
-                  <p className="font-semibold">{s.name || "매장"}</p>
-                  <p className="text-xs text-gray-600 mt-1">연결된 플랫폼: 네이버</p>
-                  <p className="text-[11px] text-gray-500">
-                    자동리포트 {s.autoReportEnabled === false ? "OFF" : "ON"}
-                  </p>
+                  매장 정기 구독하기
                 </button>
-              ))
+              </div>
+            ) : (
+              stores
+                .filter((s) => s.autoReportEnabled === true)
+                .map((s) => (
+                  <button
+                    key={s.id}
+                    onClick={() => router.push(`/reports/store/${s.id}`)}
+                    className="w-full text-left border border-gray-100 rounded-xl p-3 bg-white shadow-xs text-sm text-gray-800"
+                  >
+                    <p className="font-semibold">{s.name || "매장"}</p>
+                    <p className="text-xs text-gray-600 mt-1">
+                      연결된 플랫폼:{" "}
+                      {[
+                        (s as any).naverPlaceId || (s as any).placeId ? "네이버" : null,
+                        (s as any).googlePlaceId ? "구글" : null,
+                        (s as any).kakaoPlaceId ? "카카오" : null,
+                      ]
+                        .filter(Boolean)
+                        .join(" / ") || "없음"}
+                    </p>
+                    <p className="text-[11px] text-gray-500">
+                      자동리포트 {s.autoReportEnabled === false ? "OFF" : "ON"}
+                    </p>
+                  </button>
+                ))
             )}
           </div>
         )}
@@ -272,22 +447,25 @@ export default function MyPage() {
       {showScanModal && (
         <div className="fixed inset-0 w-screen h-screen z-[9999] bg-black/40 backdrop-blur-sm flex items-center justify-center px-4">
           <div className="bg-white rounded-2xl shadow-lg w-full max-w-sm p-5 space-y-3">
-            <h3 className="text-lg font-semibold text-gray-900">토큰 사용 안내</h3>
+            <h3 className="text-lg font-semibold text-gray-900">이용권 사용 안내</h3>
             <p className="text-sm text-gray-700">
-              최신 리포트를 스캔하면 토큰 10개가 사용됩니다. 진행할까요?
+              최신 리포트를 스캔하면 이용권 1개가 사용됩니다. 진행할까요?
             </p>
             <p className="text-xs text-gray-500">
               대상 매장: {scanStore?.name || "매장"} ({scanStore?.placeId || "placeId 없음"})
             </p>
             <p className="text-xs text-gray-500">
-              현재 보유 토큰: {(user as any)?.extraCredits ?? 0}개
+              현재 보유 이용권: {(user as any)?.extraCredits ?? 0}개
             </p>
             {scanMessage && <p className="text-xs text-red-500">{scanMessage}</p>}
             <div className="grid grid-cols-1 gap-2">
               <button
                 onClick={async () => {
                   const tokens = (user as any)?.extraCredits ?? 0;
-                  if (!scanStore?.placeId) {
+                  if (!scanStore) return;
+                  const pidNaver = scanStore.naverPlaceId || scanStore.placeId;
+                  const pidGoogle = scanStore.googlePlaceId;
+                  if (!pidNaver && !pidGoogle) {
                     setScanMessage("placeId가 없습니다. 채널을 다시 등록해주세요.");
                     return;
                   }
@@ -296,29 +474,13 @@ export default function MyPage() {
                     setShowChargeModal(true);
                     return;
                   }
-                  setScanLoading(true);
-                  try {
-                    const res = await api.post("/crawler/naver", {
-                      placeId: scanStore.placeId,
-                      storeId: scanStore.id,
-                    });
-                    setScanMessage(`수집 완료: ${res.data?.added ?? 0}개`);
-                    setShowScanModal(false);
-                  } catch (err: any) {
-                    const code = err?.response?.data?.error;
-                    if (code === "CREDITS_REQUIRED") {
-                      setScanMessage("토큰이 부족합니다. 충전 후 이용해주세요.");
-                    } else {
-                      setScanMessage("수집 실패. placeId나 네트워크를 확인하세요.");
-                    }
-                  } finally {
-                    setScanLoading(false);
-                  }
+                  setShowScanModal(false);
+                  await runScanFlow(scanStore, pidNaver, pidGoogle);
                 }}
                 disabled={authLoading || scanLoading}
                 className="w-full py-3 rounded-lg bg-blue-600 text-white text-sm font-semibold active:scale-95 disabled:opacity-60 text-base"
               >
-                {scanLoading ? "수집 중..." : "토큰 사용하기"}
+                {scanLoading ? "수집 중..." : "이용권 사용하기"}
               </button>
             </div>
             <button
@@ -338,7 +500,7 @@ export default function MyPage() {
         <div className="fixed inset-0 w-screen h-screen z-[9999] bg-black/40 backdrop-blur-sm flex items-center justify-center px-4">
           <div className="bg-white rounded-2xl shadow-lg w-full max-w-sm p-5 space-y-3">
             <h3 className="text-lg font-semibold text-gray-900">충전이 필요합니다</h3>
-            <p className="text-sm text-gray-700">보유 토큰이 부족합니다. 충전하시겠습니까?</p>
+            <p className="text-sm text-gray-700">보유 이용권이 부족합니다. 충전하시겠습니까?</p>
             <div className="grid grid-cols-2 gap-2">
               <button
                 onClick={() => {
@@ -356,6 +518,26 @@ export default function MyPage() {
                 닫기
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {showScanProgress && (
+        <div className="fixed inset-0 z-[9998] bg-black/30 backdrop-blur-sm flex items-center justify-center px-4">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-5 space-y-3 text-center">
+            <h3 className="text-lg font-semibold text-gray-900">
+              {showScanProgress === "crawl" ? "리뷰 수집 중" : "분석/리포트 생성 중"}
+            </h3>
+            <p className="text-sm text-gray-700">{scanStatus || "진행 중입니다..."}</p>
+            <div className="w-full h-2 bg-gray-100 rounded-full overflow-hidden">
+              <div className="h-full bg-blue-500 animate-pulse" />
+            </div>
+            <div className="text-left text-xs text-gray-600 space-y-1 bg-white/60 border rounded-xl p-3">
+              <p>• {(scanLogs.length ? scanLogs[scanLogs.length - 1] : "진행 중...")}</p>
+            </div>
+            <p className="text-xs text-gray-500">
+              잠시만 기다려주세요. 완료 시 자동으로 대시보드로 이동합니다.
+            </p>
           </div>
         </div>
       )}
@@ -406,6 +588,17 @@ function CollapsibleCard({
       )}
     </section>
   );
+}
+
+function PlatformList({ store }: { store: Store }) {
+  const platforms = [
+    store.naverPlaceId || store.placeId ? "네이버" : null,
+    store.googlePlaceId ? "구글" : null,
+    store.kakaoPlaceId ? "카카오" : null,
+  ]
+    .filter(Boolean)
+    .join(" / ");
+  return <span>{platforms || "없음"}</span>;
 }
 
 function ChevronRightIcon({ className }: { className?: string }) {

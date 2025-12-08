@@ -5,9 +5,16 @@ import useAuthGuard from "@/app/hooks/useAuthGuard";
 import { api } from "@/lib/api";
 import RatingChart from "@/components/RatingChart";
 import Link from "next/link";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter } from "next/navigation";
 
-type Store = { id: string; name?: string | null; placeId?: string | null };
+type Store = {
+  id: string;
+  name?: string | null;
+  placeId?: string | null;
+  naverPlaceId?: string | null;
+  googlePlaceId?: string | null;
+  kakaoPlaceId?: string | null;
+};
 type ReviewSummary = {
   id: string;
   storeId?: string | null;
@@ -33,6 +40,7 @@ export default function Dashboard() {
   // 로그인 보호 (로그인 안 되어 있으면 자동 redirect)
   const { loading: authLoading, user } = useAuthGuard();
   const searchParams = useSearchParams();
+  const router = useRouter();
 
   const [reviews, setReviews] = useState<ReviewSummary[]>([]);
   const [insight, setInsight] = useState<InsightData | null>(null);
@@ -44,6 +52,7 @@ export default function Dashboard() {
   const [customTo, setCustomTo] = useState("");
   const [latestReport, setLatestReport] = useState<ReportSummary | null>(null);
   const [reportMsg, setReportMsg] = useState<string | null>(null);
+  const [showStoreModal, setShowStoreModal] = useState(false);
 
   // =============================
   // 0) 매장 로딩
@@ -73,6 +82,13 @@ export default function Dashboard() {
     }
     loadStores();
   }, [user, searchParams]);
+
+  // 매장 없을 때 등록 안내 모달
+  useEffect(() => {
+    if (!storeLoading && stores.length === 0) {
+      setShowStoreModal(true);
+    }
+  }, [storeLoading, stores.length]);
 
   // =============================
   // 1) 데이터 로딩 (매장 선택 이후)
@@ -184,13 +200,17 @@ export default function Dashboard() {
         irrelevant: map[d].irrelevant,
       }));
   }, [rangeFiltered]);
-  // 상세페이지와 동일하게: 인사이트의 상위 키워드 노출 개수 기준
-  // 상세페이지 기준: 인사이트 상위 5개 키워드 길이만 표시
+  // 감정 카운트: summary 기반(필터된 리뷰 개수로 집계)
   const sentimentCounts = useMemo(() => {
-    const pos = (insight?.positives || []).slice(0, 5).length || 0;
-    const neg = (insight?.negatives || []).slice(0, 5).length || 0;
-    return { positive: pos, negative: neg, neutral: 0, irrelevant: 0 };
-  }, [insight]);
+    const counts = { positive: 0, negative: 0, neutral: 0, irrelevant: 0 };
+    rangeFiltered.forEach((r) => {
+      const sentiment = r.summary?.sentiment || "irrelevant";
+      if (counts[sentiment as "positive" | "negative" | "neutral" | "irrelevant"] !== undefined) {
+        counts[sentiment as "positive" | "negative" | "neutral" | "irrelevant"] += 1;
+      }
+    });
+    return counts;
+  }, [rangeFiltered]);
   const insightItems = [
     ...(insight?.insights || []),
     ...(insight?.positives || insight?.positive || []),
@@ -208,20 +228,14 @@ export default function Dashboard() {
   }, [insightItems]);
   const currentStore = stores.find((s) => s.id === selectedStoreId);
   const noStore = !storeLoading && stores.length === 0;
-  const getShownCount = (key: "positive" | "negative" | "neutral" | "irrelevant") => {
-    if (key === "positive") return (insight?.positives || []).slice(0, 5).length || 0;
-    if (key === "negative") return (insight?.negatives || []).slice(0, 5).length || 0;
-    // 상세 페이지와 동일하게 중립/기타는 키워드가 없으므로 0으로 표시
-    return 0;
-  };
   const totalsBySentiment = useMemo(
     () => ({
-      positive: getShownCount("positive"),
-      negative: getShownCount("negative"),
-      neutral: getShownCount("neutral"),
-      irrelevant: getShownCount("irrelevant"),
+      positive: sentimentCounts.positive,
+      negative: sentimentCounts.negative,
+      neutral: sentimentCounts.neutral,
+      irrelevant: sentimentCounts.irrelevant,
     }),
-    [getShownCount]
+    [sentimentCounts]
   );
 
   // AuthContext 로딩 중에는 깜빡임 방지
@@ -232,7 +246,36 @@ export default function Dashboard() {
   // 매장이 없는 경우 안내
   if (noStore) {
     return (
-      <div className="min-h-screen bg-gradient-to-b from-white via-slate-50 to-sky-50 pt-[50px] pb-[90px] px-4 space-y-4 animate-fadeIn">
+      <div className="min-h-screen bg-gradient-to-b from-white via-slate-50 to-sky-50 pt-[50px] pb-[90px] px-4 space-y-4 animate-fadeIn relative">
+        {/* 안내 모달 */}
+        {showStoreModal && (
+          <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center px-4">
+            <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-5 space-y-3 text-center">
+              <h3 className="text-lg font-semibold text-gray-900">등록된 매장이 없습니다</h3>
+              <p className="text-sm text-gray-700">
+                첫 매장을 등록하고 리뷰를 수집/분석해보세요.
+              </p>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setShowStoreModal(false)}
+                  className="flex-1 py-2 rounded-xl border text-sm text-gray-700"
+                >
+                  나중에 하기
+                </button>
+                <button
+                  onClick={() => {
+                    setShowStoreModal(false);
+                    router.push("/start/flow");
+                  }}
+                  className="flex-1 py-2 rounded-xl bg-blue-600 text-white text-sm font-semibold"
+                >
+                  지금 등록하기
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
         <div>
           <h1 className="text-2xl font-bold">대시보드</h1>
           <p className="text-gray-600 text-sm mt-1">
@@ -245,7 +288,7 @@ export default function Dashboard() {
             <p className="text-xs text-gray-500">매장을 추가하면 각 매장별 인사이트를 볼 수 있습니다.</p>
           </div>
           <Link
-            href="/stores"
+            href="/start/flow"
             className="px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-semibold"
           >
             매장 등록
@@ -272,7 +315,16 @@ export default function Dashboard() {
               <p className="text-sm font-semibold text-gray-800">
                 {currentStore.name || "매장"}{" "}
               </p>
-              <p className="text-[11px] text-gray-500">placeId: {currentStore.placeId}</p>
+              <p className="text-[11px] text-gray-500">
+                연결된 플랫폼:{" "}
+                {[
+                  currentStore.naverPlaceId || currentStore.placeId ? "네이버" : null,
+                  currentStore.googlePlaceId ? "구글" : null,
+                  currentStore.kakaoPlaceId ? "카카오" : null,
+                ]
+                  .filter(Boolean)
+                  .join(" / ") || "없음"}
+              </p>
             </div>
           )}
         </div>
@@ -290,7 +342,7 @@ export default function Dashboard() {
             href="/insights"
             className="flex items-center justify-between mb-2 text-sm font-semibold text-gray-600"
           >
-            <span>인사이트</span>
+            <span>최근 스캔 리포트</span>
             <ChevronRightIcon className="w-5 h-5 text-gray-400" />
           </Link>
           {hasInsight ? (
@@ -298,7 +350,7 @@ export default function Dashboard() {
               {insightTop.join(" · ")}
             </p>
           ) : (
-            <p className="text-sm text-gray-500">데이터가 없습니다.</p>
+            <p className="text-sm text-gray-500">최근 스캔 리포트가 없습니다.</p>
           )}
         </div>
       </section>
@@ -325,7 +377,12 @@ export default function Dashboard() {
           </Link>
         </div>
         <div className="flex flex-wrap gap-2">
-          {(insight?.tags && insight.tags.length ? insight.tags : [])
+          {(insight?.tags && insight.tags.length
+            ? insight.tags
+            : insight?.keywords && insight.keywords.length
+            ? insight.keywords
+            : []
+          )
             .slice(0, 5)
             .map((tag: string, i: number) => (
               <Link
@@ -336,7 +393,7 @@ export default function Dashboard() {
                 {tag}
               </Link>
             ))}
-          {(!insight?.tags || !insight.tags.length) && (
+          {!( (insight?.tags && insight.tags.length) || (insight?.keywords && insight.keywords.length) ) && (
             <span className="text-xs text-gray-500">데이터가 없습니다.</span>
           )}
         </div>

@@ -5,7 +5,14 @@ import useAuthGuard from "@/app/hooks/useAuthGuard";
 import { api } from "@/lib/api";
 import { useRouter } from "next/navigation";
 
-type Store = { id: string; name?: string | null };
+type Store = {
+  id: string;
+  name?: string | null;
+  naverPlaceId?: string | null;
+  googlePlaceId?: string | null;
+  kakaoPlaceId?: string | null;
+  autoReportEnabled?: boolean | null;
+};
 type Report = {
   id: string;
   period: string;
@@ -57,6 +64,8 @@ export default function ReportsPage() {
 
   if (authLoading || !user) return <div className="p-6">로딩 중...</div>;
   const isSubActive = (user as any)?.subscriptionStatus === "active";
+  const subscribedStores = stores.filter((s) => s.autoReportEnabled);
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-white via-slate-50 to-sky-50 pt-[60px] pb-[90px] px-4 space-y-4 animate-fadeIn">
       <div className="flex items-center justify-between">
@@ -89,10 +98,20 @@ export default function ReportsPage() {
               매장 정기 구독하기
             </button>
           </div>
+        ) : subscribedStores.length === 0 ? (
+          <div className="bg-white border border-gray-100 rounded-2xl shadow-sm p-4 text-center space-y-3">
+            <p className="text-sm text-gray-700">구독 중인 매장이 없습니다.</p>
+            <button
+              onClick={() => router.push("/subscribe")}
+              className="w-full py-3 rounded-xl bg-blue-600 text-white text-sm font-semibold active:scale-95"
+            >
+              매장 정기 구독하기
+            </button>
+          </div>
         ) : (
           <>
             <div className="grid gap-2">
-              {stores.map((s) => (
+              {subscribedStores.map((s) => (
                 <button
                   key={s.id}
                   onClick={() => router.push(`/reports/store/${s.id}`)}
@@ -103,7 +122,16 @@ export default function ReportsPage() {
                   }`}
                 >
                   <p className="text-sm font-semibold text-gray-900">{s.name || "매장"}</p>
-                  <p className="text-xs text-gray-600 mt-1">연결된 플랫폼: 네이버(수집/분석)</p>
+                  <p className="text-xs text-gray-600 mt-1">
+                    연결된 플랫폼:{" "}
+                    {[
+                      s.naverPlaceId || (s as any).placeId ? "네이버" : null,
+                      s.googlePlaceId ? "구글" : null,
+                      s.kakaoPlaceId ? "카카오" : null,
+                    ]
+                      .filter(Boolean)
+                      .join(" / ") || "없음"}
+                  </p>
                 </button>
               ))}
             </div>

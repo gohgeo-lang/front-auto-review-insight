@@ -31,7 +31,7 @@ export default function OnboardingLogin() {
 
       <div className="space-y-3 w-full max-w-sm mx-auto mb-6">
         <button
-          onClick={() => router.push("/auth/register")}
+          onClick={() => router.push("/auth/login")}
           className="w-full py-3 rounded-xl bg-blue-600 text-white font-semibold text-sm"
         >
           회원가입하기

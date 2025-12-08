@@ -1,6 +1,9 @@
 "use client";
 
 import { useRouter, useSearchParams } from "next/navigation";
+import { useEffect, useState } from "react";
+import useAuth from "@/app/hooks/useAuth";
+import { api } from "@/lib/api";
 
 export default function SubscribeProductPage({
   searchParams,
@@ -10,6 +13,24 @@ export default function SubscribeProductPage({
   const router = useRouter();
   const search = useSearchParams();
   const storeId = search?.get("storeId") || searchParams?.storeId;
+  const { refresh } = useAuth();
+  const [showModal, setShowModal] = useState(false);
+  const [modalMessage, setModalMessage] = useState("결제 진행 중...");
+  const [subscribing, setSubscribing] = useState(false);
+
+  useEffect(() => {
+    if (!showModal) return;
+    const timer = setTimeout(() => {
+      setModalMessage("결제가 완료되었습니다. 3초 후 닫힙니다.");
+      const closeTimer = setTimeout(() => {
+        setShowModal(false);
+        // 결제 완료 후 마이페이지 정기 리포트 탭으로 이동
+        router.push("/mypage?tab=subscription");
+      }, 3000);
+      return () => clearTimeout(closeTimer);
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [showModal, router, storeId]);
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-white via-slate-50 to-sky-50 pt-[40px] pb-[90px] px-4 space-y-5 animate-fadeIn">
@@ -52,23 +73,51 @@ export default function SubscribeProductPage({
 
         <button
           onClick={() => {
-            if (storeId) {
-              router.push(`/reports/store/${storeId}`);
-            } else {
+            if (!storeId) {
+              alert("구독할 매장을 먼저 선택해주세요.");
               router.push("/subscribe");
+              return;
             }
+            setSubscribing(true);
+            setModalMessage("결제 진행 중...");
+            setShowModal(true);
+            // 더미 결제 + 구독 활성화 API
+            api
+              .post("/billing/subscribe-store", { storeId })
+              .then(async () => {
+                await refresh?.();
+                setModalMessage("결제가 완료되었습니다. 3초 후 닫힙니다.");
+              })
+              .catch(() => {
+                setModalMessage("결제 처리에 실패했습니다. 잠시 후 다시 시도해주세요.");
+              })
+              .finally(() => setSubscribing(false));
           }}
           className="w-full py-3 rounded-xl bg-blue-600 text-white text-sm font-semibold active:scale-95"
+          disabled={subscribing}
         >
-          결제하기 (더미)
+          결제하기
         </button>
         <button
-          onClick={() => router.push("/subscribe")}
+          onClick={() => router.push("/mypage")}
           className="w-full py-2 rounded-xl bg-gray-100 text-gray-800 text-sm active:scale-95"
         >
-          매장 선택으로 돌아가기
+          돌아가기
         </button>
       </div>
+
+      {showModal && (
+        <div className="fixed inset-0 z-[9999] bg-black/40 backdrop-blur-sm flex items-center justify-center px-4">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-5 space-y-3 text-center">
+            <h3 className="text-lg font-semibold text-gray-900">결제 진행</h3>
+            <p className="text-sm text-gray-700">{modalMessage}</p>
+            <div className="w-full h-2 bg-gray-100 rounded-full overflow-hidden">
+              <div className="h-full bg-blue-500 animate-pulse" />
+            </div>
+            <p className="text-xs text-gray-500">더미 결제입니다. 실제 과금은 발생하지 않습니다.</p>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
