@@ -3,19 +3,37 @@
 import { useEffect, useState } from "react";
 import useAuthGuard from "@/app/hooks/useAuthGuard";
 import { api } from "@/lib/api";
+import { getCache, setCache } from "@/lib/simpleCache";
 
 export default function InsightsPage() {
   const { loading: authLoading, user } = useAuthGuard();
   const [insight, setInsight] = useState<any>(null);
   const [loading, setLoading] = useState(false);
+  const [sectionLoading, setSectionLoading] = useState({
+    core: true,
+    strengths: true,
+    improvements: true,
+  });
 
   useEffect(() => {
     if (!user) return;
+    const cacheKey = "insight:default";
+    const cached = getCache<any>(cacheKey);
+    if (cached) {
+      setInsight(cached);
+      setSectionLoading({ core: false, strengths: false, improvements: false });
+    }
     async function load() {
       setLoading(true);
       try {
         const ins = await api.get("/insight").catch(() => null);
-        setInsight(ins?.data || null);
+        if (ins?.data) {
+          setInsight(ins.data);
+          setCache(cacheKey, ins.data);
+        } else {
+          setInsight(null);
+        }
+        setSectionLoading({ core: false, strengths: false, improvements: false });
       } catch (err) {
         console.error("인사이트 로드 실패", err);
       } finally {
@@ -49,6 +67,7 @@ export default function InsightsPage() {
               ? [insight.insightsSummary]
               : insight?.insights || []
           }
+          loading={sectionLoading.core}
         />
         <InsightSection
           title="강점"
@@ -68,6 +87,7 @@ export default function InsightsPage() {
                 insight?.positives ||
                 []
           }
+          loading={sectionLoading.strengths}
         />
         <InsightSection
           title="개선점"
@@ -88,6 +108,7 @@ export default function InsightsPage() {
                 insight?.negatives ||
                 []
           }
+          loading={sectionLoading.improvements}
         />
       </section>
     </div>
@@ -102,11 +123,30 @@ function InsightSection({
   title,
   tags,
   solutions,
+  loading,
 }: {
   title: string;
   tags: string[];
   solutions: string[];
+  loading?: boolean;
 }) {
+  if (loading) {
+    return (
+      <div className="border border-gray-100 rounded-lg p-4 space-y-3 shadow-xs">
+        <p className="text-sm font-semibold">{title}</p>
+        <div className="flex flex-wrap gap-2">
+          {[...Array(5)].map((_, idx) => (
+            <div key={idx} className="h-6 w-16 bg-gray-200 rounded-full animate-pulse" />
+          ))}
+        </div>
+        <div className="space-y-2">
+          {[...Array(3)].map((_, idx) => (
+            <div key={idx} className="h-3 w-full bg-gray-200 rounded animate-pulse" />
+          ))}
+        </div>
+      </div>
+    );
+  }
   if (!tags?.length && !solutions?.length) {
     return (
       <div className="border border-gray-100 rounded-lg p-4 space-y-2 shadow-xs">

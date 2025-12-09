@@ -23,7 +23,7 @@ export default function HomePage() {
   const router = useRouter();
   const [query, setQuery] = useState("");
   const [stores, setStores] = useState<any[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [showStoreModal, setShowStoreModal] = useState(false);
 
   useEffect(() => {
@@ -42,9 +42,8 @@ export default function HomePage() {
   }, []);
 
   useEffect(() => {
-    if (!loading && stores.length === 0) {
-      setShowStoreModal(true);
-    }
+    if (loading) return;
+    setShowStoreModal(stores.length === 0);
   }, [loading, stores.length]);
 
   const filtered = useMemo(() => {

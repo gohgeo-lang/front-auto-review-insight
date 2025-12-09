@@ -4,19 +4,37 @@ import { useEffect, useMemo, useState } from "react";
 import useAuthGuard from "@/app/hooks/useAuthGuard";
 import { api } from "@/lib/api";
 import Link from "next/link";
+import { getCache, setCache } from "@/lib/simpleCache";
 
 export default function KeywordPage() {
   const { loading: authLoading, user } = useAuthGuard();
   const [insight, setInsight] = useState<any>(null);
   const [loading, setLoading] = useState(false);
+  const [sectionLoading, setSectionLoading] = useState({
+    keywords: true,
+    categories: true,
+    solutions: true,
+  });
 
   useEffect(() => {
     if (!user) return;
+    const cacheKey = "insight:default";
+    const cached = getCache<any>(cacheKey);
+    if (cached) {
+      setInsight(cached);
+      setSectionLoading({ keywords: false, categories: false, solutions: false });
+    }
     async function load() {
       setLoading(true);
       try {
         const res = await api.get("/insight");
-        setInsight(res.data || null);
+        if (res?.data) {
+          setInsight(res.data);
+          setCache(cacheKey, res.data);
+        } else {
+          setInsight(null);
+        }
+        setSectionLoading({ keywords: false, categories: false, solutions: false });
       } catch (err) {
         console.error("키워드 로드 실패", err);
         setInsight(null);
@@ -69,7 +87,13 @@ export default function KeywordPage() {
 
       <section className="bg-white border border-gray-100 rounded-xl shadow-xs p-4">
         <h2 className="text-base font-semibold mb-3">상위 키워드 Top 50</h2>
-        {keywordCounts.length ? (
+        {sectionLoading.keywords ? (
+          <div className="flex flex-wrap gap-2">
+            {[...Array(15)].map((_, idx) => (
+              <div key={idx} className="h-7 w-16 bg-gray-200 rounded-full animate-pulse" />
+            ))}
+          </div>
+        ) : keywordCounts.length ? (
           <div className="flex flex-wrap gap-2">
             {keywordCounts.map(([k, c]) => (
               <span
@@ -87,7 +111,13 @@ export default function KeywordPage() {
 
       <section className="bg-white border border-gray-100 rounded-xl shadow-xs p-4 space-y-3">
         <h2 className="text-base font-semibold">자동 카테고리</h2>
-        {categorized.length ? (
+        {sectionLoading.categories ? (
+          <div className="grid md:grid-cols-2 gap-2">
+            {[...Array(4)].map((_, idx) => (
+              <div key={idx} className="h-10 bg-gray-100 rounded-lg animate-pulse" />
+            ))}
+          </div>
+        ) : categorized.length ? (
           <div className="grid md:grid-cols-2 gap-2 text-sm text-gray-800">
             {categorized.map((c: any) => (
               <div
@@ -108,13 +138,21 @@ export default function KeywordPage() {
 
       <section className="bg-white border border-gray-100 rounded-xl shadow-xs p-4 space-y-2">
         <h2 className="text-base font-semibold">추천 솔루션</h2>
-        <ul className="text-sm text-gray-800 list-disc list-inside space-y-1">
-          {solutions.length ? (
-            solutions.map((s: string, i: number) => <li key={i}>{s}</li>)
-          ) : (
-            <li className="text-xs text-gray-500">데이터가 없습니다.</li>
-          )}
-        </ul>
+        {sectionLoading.solutions ? (
+          <div className="space-y-2">
+            {[...Array(4)].map((_, idx) => (
+              <div key={idx} className="h-3 w-full bg-gray-200 rounded animate-pulse" />
+            ))}
+          </div>
+        ) : (
+          <ul className="text-sm text-gray-800 list-disc list-inside space-y-1">
+            {solutions.length ? (
+              solutions.map((s: string, i: number) => <li key={i}>{s}</li>)
+            ) : (
+              <li className="text-xs text-gray-500">데이터가 없습니다.</li>
+            )}
+          </ul>
+        )}
       </section>
     </div>
   );

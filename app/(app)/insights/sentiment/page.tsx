@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import useAuthGuard from "@/app/hooks/useAuthGuard";
 import { api } from "@/lib/api";
 import Link from "next/link";
+import { getCache, setCache } from "@/lib/simpleCache";
 
 type ReviewItem = {
   id: string;
@@ -27,6 +28,7 @@ export default function SentimentDetailPage() {
   const [customFrom, setCustomFrom] = useState("");
   const [customTo, setCustomTo] = useState("");
   const [openDetail, setOpenDetail] = useState<Record<string, boolean>>({});
+  const [narrativeLoading, setNarrativeLoading] = useState(true);
 
   useEffect(() => {
     // 대시보드에서 선택했던 매장 기준으로 정렬
@@ -43,7 +45,10 @@ export default function SentimentDetailPage() {
       setLoading(true);
       try {
         const rv = await api.get("/reviews", {
-          params: storeId ? { storeId } : {},
+          params: {
+            ...(storeId ? { storeId } : {}),
+            collectedToday: true, // 수동 스캔 인사이트: 오늘 수집한 리뷰 기준
+          },
         });
         setReviews(rv.data || []);
       } catch (err) {
@@ -57,28 +62,9 @@ export default function SentimentDetailPage() {
 
   // 대시보드와 동일한 기간 필터
   const rangeFiltered = useMemo(() => {
-    return reviews.filter((r: any) => {
-      const created = new Date(r.createdAt);
-
-      if (customFrom || customTo) {
-        const from = customFrom ? new Date(customFrom) : new Date("1970-01-01");
-        const to = customTo ? new Date(customTo) : new Date();
-        const diffDays = (to.getTime() - from.getTime()) / (1000 * 3600 * 24);
-        if (diffDays > 366) return false; // 1년 제한
-        return created >= from && created <= to;
-      }
-
-      if (range === "today") {
-        const today = new Date().toISOString().slice(0, 10);
-        return created.toISOString().slice(0, 10) === today;
-      }
-
-      const days = Number(range);
-      const cutoff = new Date();
-      cutoff.setDate(cutoff.getDate() - days);
-      return created >= cutoff;
-    });
-  }, [reviews, customFrom, customTo, range]);
+    // 이미 collectedToday=true로 수집일 기준 필터링되어 있으므로 추가 기간 필터를 적용하지 않음
+    return reviews;
+  }, [reviews]);
 
   const normalizeSentiment = (item: ReviewItem) => {
     const raw = (item.summary?.sentiment || "").toLowerCase();
@@ -150,7 +136,8 @@ export default function SentimentDetailPage() {
       map: Record<string, number>,
       words: string[] | undefined | null
     ) => {
-      (words || []).forEach((w) => {
+      const unique = Array.from(new Set(words || []));
+      unique.forEach((w) => {
         const key = w.trim();
         if (!key) return;
         map[key] = (map[key] || 0) + 1;
@@ -198,47 +185,88 @@ export default function SentimentDetailPage() {
     return map;
   }, [rangeFiltered]);
 
+  // 12감정별 키워드 상위 목록 (중복 제거 후 집계)
+  const detailKeywordStats = useMemo(() => {
+    const map: Record<string, Record<string, number>> = {};
+    rangeFiltered.forEach((r) => {
+      const detailKey = getDetailLabel(r);
+      if (!map[detailKey]) map[detailKey] = {};
+      const seen = new Set<string>();
+      (r.summary?.keywords || []).forEach((kw) => {
+        const key = kw.trim();
+        if (!key || seen.has(key)) return;
+        seen.add(key);
+        map[detailKey][key] = (map[detailKey][key] || 0) + 1;
+      });
+    });
+    return map;
+  }, [rangeFiltered, getDetailLabel]);
+
   // 요약 코멘트 (300자 이내)
   const sentimentComment = useMemo(() => {
-    const total = Object.values(detailBuckets).reduce(
-      (sum, arr) => sum + (arr?.length || 0),
-      0
-    );
-    if (!total) return "아직 감정 데이터가 없습니다.";
+    return "감정 해설을 준비 중입니다.";
+  }, []);
 
-    const entries = Object.entries(detailBuckets)
-      .map(([k, arr]) => ({
-        key: k,
-        label: detailLabels[k] || k,
-        count: arr?.length || 0,
-      }))
-      .filter((e) => e.count > 0)
-      .sort((a, b) => b.count - a.count);
-
-    const top = entries
-      .slice(0, 3)
-      .map((e) => `${e.label}(${e.count}건)`)
-      .join(", ");
-
-    const pos = sentimentBuckets.positive.length;
-    const neg = sentimentBuckets.negative.length;
-    const neu = sentimentBuckets.neutral.length;
-    const irr = sentimentBuckets.irrelevant.length;
-
-    const mainTone =
-      pos > neg
-        ? "전반적으로 긍정적인 감정이 더 많이 나타납니다."
-        : neg > pos
-        ? "부정적인 감정 언급이 상대적으로 많습니다."
-        : "긍정과 부정이 비슷하게 언급됩니다.";
-
-    const highlight = top ? `주요 감정: ${top}` : "주요 감정을 파악할 데이터가 부족합니다.";
-    const text = `${mainTone} ${highlight}`;
-    return text.length > 300 ? text.slice(0, 300) : text;
-  }, [detailBuckets, sentimentBuckets]);
+  // AI 감정 해설 불러오기
+  const [narrative, setNarrative] = useState<string | null>(null);
+  useEffect(() => {
+    if (!user) return;
+    const cacheKey = storeId ? `insight:${storeId}` : "insight:default";
+    const cached = getCache<any>(cacheKey);
+    if (cached?.sentimentNarrative) {
+      setNarrative(cached.sentimentNarrative);
+      setNarrativeLoading(false);
+    }
+    async function loadNarrative() {
+      setNarrativeLoading(true);
+      try {
+        const res = await api.get("/insight", {
+          params: storeId ? { storeId } : {},
+        });
+        if (res?.data) {
+          setNarrative(res.data?.sentimentNarrative || null);
+          setCache(cacheKey, res.data);
+        } else {
+          setNarrative(null);
+        }
+      } catch (err) {
+        console.error("감정 해설 로드 실패", err);
+        setNarrative(null);
+      } finally {
+        setNarrativeLoading(false);
+      }
+    }
+    loadNarrative();
+  }, [user, storeId]);
 
   if (authLoading || !user) {
     return <div className="p-8 text-center text-gray-500">불러오는 중...</div>;
+  }
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-b from-white via-slate-50 to-sky-50 pt-[50px] pb-[90px] px-4 space-y-4 animate-fadeIn">
+        <div className="flex items-center justify-between">
+          <div className="h-6 w-40 bg-gray-200 rounded animate-pulse" />
+          <div className="h-4 w-16 bg-gray-200 rounded animate-pulse" />
+        </div>
+        <div className="bg-white border border-gray-100 rounded-xl shadow-xs p-4 space-y-3">
+          <div className="h-4 w-32 bg-gray-200 rounded animate-pulse" />
+          <div className="h-3 w-full bg-gray-200 rounded animate-pulse" />
+          <div className="h-3 w-5/6 bg-gray-200 rounded animate-pulse" />
+        </div>
+        <div className="bg-white border border-gray-100 rounded-xl shadow-xs p-4 space-y-3">
+          {[...Array(4)].map((_, idx) => (
+            <div key={idx} className="h-10 bg-gray-100 rounded-lg animate-pulse" />
+          ))}
+        </div>
+        <div className="bg-white border border-gray-100 rounded-xl shadow-xs p-4 space-y-2">
+          <div className="h-4 w-24 bg-gray-200 rounded animate-pulse" />
+          <div className="h-3 w-full bg-gray-200 rounded animate-pulse" />
+          <div className="h-3 w-5/6 bg-gray-200 rounded animate-pulse" />
+        </div>
+      </div>
+    );
   }
 
   const getShownCount = (key: string) => {
@@ -324,16 +352,15 @@ export default function SentimentDetailPage() {
                 <div className="mt-2 space-y-3">
                   {/* 키워드 배지 */}
                   <div className="flex flex-wrap gap-2">
-                    {(detailBuckets[k] || [])
-                      .flatMap((r) => r.summary?.keywords || [])
-                      .filter(Boolean)
+                    {Object.entries(detailKeywordStats[k] || {})
+                      .sort((a, b) => b[1] - a[1])
                       .slice(0, 15)
-                      .map((kw, idx) => (
+                      .map(([kw, count]) => (
                         <span
-                          key={`${k}-kw-${idx}-${kw}`}
+                          key={`${k}-kw-${kw}`}
                           className="px-2 py-1 bg-white border border-gray-200 rounded-full text-[11px] text-gray-700"
                         >
-                          {kw}
+                          {kw} ({count})
                         </span>
                       ))}
                   </div>
@@ -346,10 +373,19 @@ export default function SentimentDetailPage() {
 
       {/* 감정 해설 */}
       <section className="bg-white border border-gray-100 rounded-xl shadow-xs p-4 space-y-2">
-        <h2 className="text-base font-semibold">감정 요약</h2>
-        <p className="text-sm text-gray-800 leading-relaxed">
-          {sentimentComment}
-        </p>
+        <h2 className="text-base font-semibold">감정 해설</h2>
+        {narrativeLoading ? (
+          <div className="space-y-2">
+            <div className="h-4 w-32 bg-gray-200 rounded animate-pulse" />
+            <div className="h-3 w-full bg-gray-200 rounded animate-pulse" />
+            <div className="h-3 w-5/6 bg-gray-200 rounded animate-pulse" />
+            <div className="h-3 w-4/6 bg-gray-200 rounded animate-pulse" />
+          </div>
+        ) : (
+          <p className="text-sm text-gray-800 leading-relaxed">
+            {narrative || sentimentComment}
+          </p>
+        )}
       </section>
     </div>
   );

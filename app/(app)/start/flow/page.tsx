@@ -535,20 +535,20 @@ export default function StartFlow() {
         <div className="fixed inset-0 z-[9999] bg-black/40 backdrop-blur-sm flex items-center justify-center px-4">
           <div className="bg-white rounded-2xl shadow-lg w-full max-w-sm p-5 space-y-3">
             <h3 className="text-lg font-semibold text-gray-900">
-              토큰 사용 안내
+              이용권 사용 안내
             </h3>
             <p className="text-sm text-gray-700">
-              리뷰 수집/분석을 시작하면 토큰 {requiredTokens}개가 사용됩니다.
+              리뷰 수집/분석을 시작하면 이용권 {requiredTokens}개가 사용됩니다.
             </p>
             <p className="text-xs text-gray-500">
-              현재 보유 토큰: {(user as any)?.extraCredits ?? 0}개
+              이용권 보유량: {(user as any)?.extraCredits ?? 0}개
             </p>
             <div className="grid grid-cols-2 gap-2">
               <button
                 onClick={() => {
                   const tokens = (user as any)?.extraCredits ?? 0;
                   if (tokens < requiredTokens) {
-                    setStatus("토큰이 부족합니다. 충전 후 이용해주세요.");
+                    setStatus("이용권이 부족합니다. 충전 후 이용해주세요.");
                     setShowTokenModal(false);
                     router.push("/credits");
                     return;
