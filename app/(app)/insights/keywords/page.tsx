@@ -1,49 +1,23 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo } from "react";
 import useAuthGuard from "@/app/hooks/useAuthGuard";
-import { api } from "@/lib/api";
 import Link from "next/link";
-import { getCache, setCache } from "@/lib/simpleCache";
+import { fetcher } from "@/lib/fetcher";
+import { usePersistentSWR } from "@/lib/usePersistentSWR";
 
 export default function KeywordPage() {
   const { loading: authLoading, user } = useAuthGuard();
-  const [insight, setInsight] = useState<any>(null);
-  const [loading, setLoading] = useState(false);
-  const [sectionLoading, setSectionLoading] = useState({
-    keywords: true,
-    categories: true,
-    solutions: true,
-  });
-
-  useEffect(() => {
-    if (!user) return;
-    const cacheKey = "insight:default";
-    const cached = getCache<any>(cacheKey);
-    if (cached) {
-      setInsight(cached);
-      setSectionLoading({ keywords: false, categories: false, solutions: false });
+  const { data: insight, isLoading: loading } = usePersistentSWR(
+    user ? `/insight` : null,
+    fetcher,
+    {
+      revalidateOnFocus: false,
+      dedupingInterval: 5 * 60 * 1000,
+      storageKey: user ? `cache:insight:${user.id}` : undefined,
+      ttlMs: 10 * 60 * 1000,
     }
-    async function load() {
-      setLoading(true);
-      try {
-        const res = await api.get("/insight");
-        if (res?.data) {
-          setInsight(res.data);
-          setCache(cacheKey, res.data);
-        } else {
-          setInsight(null);
-        }
-        setSectionLoading({ keywords: false, categories: false, solutions: false });
-      } catch (err) {
-        console.error("키워드 로드 실패", err);
-        setInsight(null);
-      } finally {
-        setLoading(false);
-      }
-    }
-    load();
-  }, [user]);
+  );
 
   const keywordCounts: [string, number][] = useMemo(() => {
     if (insight?.keywordsTop50?.length) {
@@ -61,11 +35,7 @@ export default function KeywordPage() {
     return insight?.autoCategories || [];
   }, [insight]);
 
-  const solutions = useMemo(() => {
-    if (insight?.keywordSolutions?.length) return insight.keywordSolutions;
-    if (insight?.solutions?.length) return insight.solutions;
-    return [];
-  }, [insight]);
+  const keywordNarrative = insight?.keywordNarrative || "";
 
   if (authLoading || !user) {
     return <div className="p-8 text-center text-gray-500">불러오는 중...</div>;
@@ -87,7 +57,7 @@ export default function KeywordPage() {
 
       <section className="bg-white border border-gray-100 rounded-xl shadow-xs p-4">
         <h2 className="text-base font-semibold mb-3">상위 키워드 Top 50</h2>
-        {sectionLoading.keywords ? (
+        {loading ? (
           <div className="flex flex-wrap gap-2">
             {[...Array(15)].map((_, idx) => (
               <div key={idx} className="h-7 w-16 bg-gray-200 rounded-full animate-pulse" />
@@ -111,7 +81,7 @@ export default function KeywordPage() {
 
       <section className="bg-white border border-gray-100 rounded-xl shadow-xs p-4 space-y-3">
         <h2 className="text-base font-semibold">자동 카테고리</h2>
-        {sectionLoading.categories ? (
+        {loading ? (
           <div className="grid md:grid-cols-2 gap-2">
             {[...Array(4)].map((_, idx) => (
               <div key={idx} className="h-10 bg-gray-100 rounded-lg animate-pulse" />
@@ -137,21 +107,19 @@ export default function KeywordPage() {
       </section>
 
       <section className="bg-white border border-gray-100 rounded-xl shadow-xs p-4 space-y-2">
-        <h2 className="text-base font-semibold">추천 솔루션</h2>
-        {sectionLoading.solutions ? (
+        <h2 className="text-base font-semibold">키워드 해설</h2>
+        {loading ? (
           <div className="space-y-2">
             {[...Array(4)].map((_, idx) => (
               <div key={idx} className="h-3 w-full bg-gray-200 rounded animate-pulse" />
             ))}
           </div>
+        ) : keywordNarrative ? (
+          <p className="text-sm text-gray-800 leading-relaxed whitespace-pre-line">
+            {keywordNarrative}
+          </p>
         ) : (
-          <ul className="text-sm text-gray-800 list-disc list-inside space-y-1">
-            {solutions.length ? (
-              solutions.map((s: string, i: number) => <li key={i}>{s}</li>)
-            ) : (
-              <li className="text-xs text-gray-500">데이터가 없습니다.</li>
-            )}
-          </ul>
+          <p className="text-xs text-gray-500">데이터가 없습니다.</p>
         )}
       </section>
     </div>

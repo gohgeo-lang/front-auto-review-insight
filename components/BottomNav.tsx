@@ -22,7 +22,7 @@ export default function BottomNav() {
   }
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 h-[64px] bg-white/95 backdrop-blur border-t border-gray-200 shadow-sm flex justify-around items-center z-[60] max-w-[430px] mx-auto">
+    <nav className="bottom-nav fixed bottom-0 left-0 right-0 h-[64px] bg-white/95 backdrop-blur border-t border-gray-200 shadow-sm flex justify-around items-center z-[40] max-w-[430px] mx-auto">
       {items.map((item) => (
         <button
           key={item.path}

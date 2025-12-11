@@ -108,6 +108,10 @@ body {
   scrollbar-width: none;
 }
 
+.hide-bottom-nav .bottom-nav {
+  display: none !important;
+}
+
 .card {
   background: white;
   border: 1px solid var(--gray-200);

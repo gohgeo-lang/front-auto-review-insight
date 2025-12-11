@@ -2,8 +2,10 @@
 
 import { useEffect, useMemo, useState } from "react";
 import useAuthGuard from "@/app/hooks/useAuthGuard";
-import { api } from "@/lib/api";
 import Link from "next/link";
+import useSWR from "swr";
+import { fetcher } from "@/lib/fetcher";
+import { usePersistentSWR } from "@/lib/usePersistentSWR";
 import { getCache, setCache } from "@/lib/simpleCache";
 
 type ReviewItem = {
@@ -21,8 +23,6 @@ type ReviewItem = {
 
 export default function SentimentDetailPage() {
   const { loading: authLoading, user } = useAuthGuard();
-  const [reviews, setReviews] = useState<ReviewItem[]>([]);
-  const [loading, setLoading] = useState(false);
   const [storeId, setStoreId] = useState<string | null>(null);
   const [range, setRange] = useState("30");
   const [customFrom, setCustomFrom] = useState("");
@@ -39,26 +39,40 @@ export default function SentimentDetailPage() {
     if (saved) setStoreId(saved);
   }, []);
 
-  useEffect(() => {
-    if (!user) return;
-    async function load() {
-      setLoading(true);
-      try {
-        const rv = await api.get("/reviews", {
-          params: {
-            ...(storeId ? { storeId } : {}),
-            collectedToday: true, // 수동 스캔 인사이트: 오늘 수집한 리뷰 기준
-          },
-        });
-        setReviews(rv.data || []);
-      } catch (err) {
-        console.error("리뷰 로드 실패", err);
-      } finally {
-        setLoading(false);
-      }
-    }
-    load();
-  }, [user, storeId]);
+  // 리뷰 데이터: 수집일 기준 우선, 없으면 작성일 기준 폴백
+  const { data: collectedReviews, isLoading: loadingCollected } = useSWR<ReviewItem[]>(
+    user ? `/reviews${storeId ? `?storeId=${storeId}&collectedToday=true` : `?collectedToday=true`}` : null,
+    fetcher,
+    { revalidateOnFocus: false, dedupingInterval: 5 * 60 * 1000 }
+  );
+  const { data: fallbackReviews, isLoading: loadingFallback } = useSWR<ReviewItem[]>(
+    user && collectedReviews && collectedReviews.length === 0
+      ? `/reviews${storeId ? `?storeId=${storeId}` : ""}`
+      : null,
+    fetcher,
+    { revalidateOnFocus: false, dedupingInterval: 5 * 60 * 1000 }
+  );
+  const reviewsRaw = collectedReviews && collectedReviews.length ? collectedReviews : fallbackReviews || [];
+  // 배치 스텁(__batch_processed) 제외 + 내용 없는 요약 제거
+  const reviews = useMemo(() => {
+    const isEmptySummary = (s?: ReviewItem["summary"]) => {
+      if (!s) return true;
+      const hasSentiment = !!(s.sentiment && s.sentiment.trim());
+      const hasLists =
+        (s.positives && s.positives.length) ||
+        (s.negatives && s.negatives.length) ||
+        (s.keywords && s.keywords.length) ||
+        (s.tags && s.tags.length);
+      return !hasSentiment && !hasLists;
+    };
+    return (reviewsRaw || []).filter((r) => {
+      const tags = r.summary?.tags || [];
+      if (tags.includes("__batch_processed")) return false;
+      if (isEmptySummary(r.summary)) return false;
+      return true;
+    });
+  }, [reviewsRaw]);
+  const loading = loadingCollected || (collectedReviews && collectedReviews.length === 0 && loadingFallback);
 
   // 대시보드와 동일한 기간 필터
   const rangeFiltered = useMemo(() => {
@@ -208,36 +222,20 @@ export default function SentimentDetailPage() {
   }, []);
 
   // AI 감정 해설 불러오기
-  const [narrative, setNarrative] = useState<string | null>(null);
+  const { data: insight, isLoading: narrativeLoadingSwr } = usePersistentSWR(
+    user ? `/insight${storeId ? `?storeId=${storeId}` : ""}` : null,
+    fetcher,
+    {
+      revalidateOnFocus: false,
+      dedupingInterval: 5 * 60 * 1000,
+      storageKey: user ? `cache:insight:${user.id}:${storeId || "default"}` : undefined,
+      ttlMs: 10 * 60 * 1000,
+    }
+  );
+  const narrative = insight?.sentimentNarrative || null;
   useEffect(() => {
-    if (!user) return;
-    const cacheKey = storeId ? `insight:${storeId}` : "insight:default";
-    const cached = getCache<any>(cacheKey);
-    if (cached?.sentimentNarrative) {
-      setNarrative(cached.sentimentNarrative);
-      setNarrativeLoading(false);
-    }
-    async function loadNarrative() {
-      setNarrativeLoading(true);
-      try {
-        const res = await api.get("/insight", {
-          params: storeId ? { storeId } : {},
-        });
-        if (res?.data) {
-          setNarrative(res.data?.sentimentNarrative || null);
-          setCache(cacheKey, res.data);
-        } else {
-          setNarrative(null);
-        }
-      } catch (err) {
-        console.error("감정 해설 로드 실패", err);
-        setNarrative(null);
-      } finally {
-        setNarrativeLoading(false);
-      }
-    }
-    loadNarrative();
-  }, [user, storeId]);
+    setNarrativeLoading(narrativeLoadingSwr);
+  }, [narrativeLoadingSwr]);
 
   if (authLoading || !user) {
     return <div className="p-8 text-center text-gray-500">불러오는 중...</div>;

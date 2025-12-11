@@ -1,47 +1,22 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import useAuthGuard from "@/app/hooks/useAuthGuard";
 import { api } from "@/lib/api";
-import { getCache, setCache } from "@/lib/simpleCache";
+import { fetcher } from "@/lib/fetcher";
+import { usePersistentSWR } from "@/lib/usePersistentSWR";
 
 export default function InsightsPage() {
   const { loading: authLoading, user } = useAuthGuard();
-  const [insight, setInsight] = useState<any>(null);
-  const [loading, setLoading] = useState(false);
-  const [sectionLoading, setSectionLoading] = useState({
-    core: true,
-    strengths: true,
-    improvements: true,
-  });
-
-  useEffect(() => {
-    if (!user) return;
-    const cacheKey = "insight:default";
-    const cached = getCache<any>(cacheKey);
-    if (cached) {
-      setInsight(cached);
-      setSectionLoading({ core: false, strengths: false, improvements: false });
+  const { data: insight, isLoading: loading } = usePersistentSWR(
+    user ? `/insight` : null,
+    fetcher,
+    {
+      revalidateOnFocus: false,
+      dedupingInterval: 5 * 60 * 1000,
+      storageKey: user ? `cache:insight:${user.id}` : undefined,
+      ttlMs: 10 * 60 * 1000,
     }
-    async function load() {
-      setLoading(true);
-      try {
-        const ins = await api.get("/insight").catch(() => null);
-        if (ins?.data) {
-          setInsight(ins.data);
-          setCache(cacheKey, ins.data);
-        } else {
-          setInsight(null);
-        }
-        setSectionLoading({ core: false, strengths: false, improvements: false });
-      } catch (err) {
-        console.error("인사이트 로드 실패", err);
-      } finally {
-        setLoading(false);
-      }
-    }
-    load();
-  }, [user]);
+  );
 
   if (authLoading || !user) {
     return <div className="p-8 text-center">로딩 중...</div>;
@@ -67,7 +42,7 @@ export default function InsightsPage() {
               ? [insight.insightsSummary]
               : insight?.insights || []
           }
-          loading={sectionLoading.core}
+          loading={loading}
         />
         <InsightSection
           title="강점"
@@ -87,7 +62,7 @@ export default function InsightsPage() {
                 insight?.positives ||
                 []
           }
-          loading={sectionLoading.strengths}
+          loading={loading}
         />
         <InsightSection
           title="개선점"
@@ -108,7 +83,7 @@ export default function InsightsPage() {
                 insight?.negatives ||
                 []
           }
-          loading={sectionLoading.improvements}
+          loading={loading}
         />
       </section>
     </div>

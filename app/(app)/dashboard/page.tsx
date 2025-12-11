@@ -6,7 +6,9 @@ import { api } from "@/lib/api";
 import RatingChart from "@/components/RatingChart";
 import Link from "next/link";
 import { useSearchParams, useRouter } from "next/navigation";
-import { getCache, setCache } from "@/lib/simpleCache";
+import useSWR from "swr";
+import { fetcher } from "@/lib/fetcher";
+import { usePersistentSWR } from "@/lib/usePersistentSWR";
 
 type Store = {
   id: string;
@@ -43,9 +45,8 @@ export default function Dashboard() {
   const searchParams = useSearchParams();
   const router = useRouter();
 
-  const [reviews, setReviews] = useState<ReviewSummary[]>([]);
-  const [insight, setInsight] = useState<InsightData | null>(null);
   const [stores, setStores] = useState<Store[]>([]);
+  const [reviews, setReviews] = useState<ReviewSummary[]>([]);
   const [selectedStoreId, setSelectedStoreId] = useState<string | null>(null);
   const [storeLoading, setStoreLoading] = useState(true);
   const [range, setRange] = useState("30"); // days filter default 1개월 (작성일 기준)
@@ -61,6 +62,12 @@ export default function Dashboard() {
     sentiment: true,
     chart: true,
     tags: true,
+  });
+  const [sentimentCountsState, setSentimentCountsState] = useState({
+    positive: 0,
+    negative: 0,
+    neutral: 0,
+    irrelevant: 0,
   });
 
   // =============================
@@ -102,89 +109,95 @@ export default function Dashboard() {
   // =============================
   // 1) 데이터 로딩 (매장 선택 이후)
   // =============================
+  const { data: reviewsData, isLoading: reviewsLoading } = usePersistentSWR<ReviewSummary[]>(
+    user && selectedStoreId
+      ? `/reviews?storeId=${selectedStoreId}&collectedToday=true`
+      : null,
+    fetcher,
+    {
+      revalidateOnFocus: false,
+      dedupingInterval: 5 * 60 * 1000,
+      storageKey: user && selectedStoreId ? `cache:reviews:${user.id}:${selectedStoreId}:collected` : undefined,
+      ttlMs: 10 * 60 * 1000,
+    }
+  );
+
+  const { data: fallbackReviews } = usePersistentSWR<ReviewSummary[]>(
+    user && selectedStoreId && !reviewsData?.length
+      ? `/reviews?storeId=${selectedStoreId}`
+      : null,
+    fetcher,
+    {
+      revalidateOnFocus: false,
+      dedupingInterval: 5 * 60 * 1000,
+      storageKey: user && selectedStoreId ? `cache:reviews:${user.id}:${selectedStoreId}:created` : undefined,
+      ttlMs: 10 * 60 * 1000,
+    }
+  );
+
+  const { data: insight } = usePersistentSWR<InsightData>(
+    user && selectedStoreId ? `/insight?storeId=${selectedStoreId}` : null,
+    fetcher,
+    {
+      revalidateOnFocus: false,
+      dedupingInterval: 5 * 60 * 1000,
+      storageKey: user && selectedStoreId ? `cache:insight:${user.id}:${selectedStoreId}` : undefined,
+      ttlMs: 10 * 60 * 1000,
+    }
+  );
+
+  const { data: reports } = usePersistentSWR<ReportSummary[]>(
+    user && selectedStoreId ? `/reports?storeId=${selectedStoreId}` : null,
+    fetcher,
+    {
+      revalidateOnFocus: false,
+      dedupingInterval: 5 * 60 * 1000,
+      storageKey: user && selectedStoreId ? `cache:reports:${user.id}:${selectedStoreId}` : undefined,
+      ttlMs: 10 * 60 * 1000,
+    }
+  );
+
   useEffect(() => {
-    if (!user || !selectedStoreId) return; // 로그인 보호 + 매장 선택 필요
+    if (!user || !selectedStoreId) return;
+    const pickedReviews = reviewsData && reviewsData.length ? reviewsData : fallbackReviews || [];
 
-    async function load() {
-      // 캐시 확인: 있으면 먼저 렌더 후 백그라운드 갱신
-      const cacheKeyInsight = selectedStoreId ? `insight:${selectedStoreId}` : "insight:default";
-      const cacheKeyReviews = selectedStoreId
-        ? `reviews:${selectedStoreId}:collected`
-        : "reviews:all:collected";
-      const cachedInsight = getCache<InsightData>(cacheKeyInsight);
-      const cachedReviews = getCache<ReviewSummary[]>(cacheKeyReviews);
-      if (cachedInsight) {
-        setInsight(cachedInsight);
-        setSectionLoading((prev) => ({ ...prev, insights: false, sentiment: false, tags: false }));
+    // 스텁/빈 요약 제외
+    const filteredReviews = pickedReviews.filter((r) => {
+      const tags = r.summary?.tags || [];
+      const hasBatchStub = tags.includes("__batch_processed");
+      const hasContent =
+        !!(r.summary?.sentiment && r.summary.sentiment.trim()) ||
+        (r.summary?.positives && r.summary.positives.length) ||
+        (r.summary?.negatives && r.summary.negatives.length) ||
+        (r.summary?.keywords && r.summary.keywords.length) ||
+        (r.summary?.tags && r.summary.tags.length);
+      return !hasBatchStub && hasContent;
+    });
+
+    setReviews(filteredReviews || []);
+    setSentimentSource(reviewsData && reviewsData.length ? "collected" : "created");
+    setSectionLoading((prev) => ({ ...prev, sentiment: false, chart: false }));
+
+    // 감정 카운트: 실제 렌더링되는 리뷰 기반으로 집계해 차트/카드 일치
+    const counts = { positive: 0, negative: 0, neutral: 0, irrelevant: 0 };
+    filteredReviews.forEach((r) => {
+      const s = r.summary?.sentiment || "irrelevant";
+      if (counts[s as keyof typeof counts] !== undefined) {
+        counts[s as keyof typeof counts] += 1;
       }
-      if (cachedReviews) {
-        setReviews(cachedReviews);
-        setSentimentSource("collected");
-      }
-      setLoading(!cachedInsight && !cachedReviews);
-      try {
-        // 리뷰 불러오기: 수집일 기준 우선, 실패 시 작성일 기준
-        let rv = await api
-          .get<ReviewSummary[]>("/reviews", {
-            params: { storeId: selectedStoreId, collectedToday: true },
-          })
-          .catch(() => null);
-        let reviewsData = rv?.data || [];
-        if (reviewsData.length === 0) {
-          // fallback: 전체 리뷰
-          rv = await api.get<ReviewSummary[]>("/reviews", { params: { storeId: selectedStoreId } }).catch(() => null);
-          reviewsData = rv?.data || [];
-          setSentimentSource("created");
-        } else {
-          setSentimentSource("collected");
-        }
-        setReviews(reviewsData);
-        setCache(cacheKeyReviews, reviewsData);
+    });
+    setSentimentCountsState(counts);
 
-        // 사용자 인사이트 불러오기 (storeId 기준, 없으면 전체로 한번 더 시도)
-        const isEmpty = (data?: InsightData | null) => {
-          if (!data) return true;
-          const buckets = [
-            data.insights,
-            data.positives,
-            data.negatives,
-            data.keywords,
-            data.tags,
-          ];
-          return !buckets.some((arr) => arr && arr.length);
-        };
-
-        let insRes = await api
-          .get<InsightData>(`/insight`, { params: { storeId: selectedStoreId } })
-          .catch(() => null);
-
-        if (isEmpty(insRes?.data)) {
-          insRes = await api.get<InsightData>(`/insight`).catch(() => null);
-        }
-
-        if (insRes?.data) {
-          setInsight(insRes.data);
-          setCache(cacheKeyInsight, insRes.data);
-        } else if (!cachedInsight) {
-          setInsight(null);
-        }
-        setSectionLoading((prev) => ({ ...prev, insights: false, sentiment: false, tags: false }));
-
-        // 최신 리포트 가져오기 (있으면 1개)
-        const rep = await api
-          .get<ReportSummary[]>("/reports", { params: { storeId: selectedStoreId } })
-          .catch(() => null);
-        setLatestReport(rep?.data?.[0] || null);
-        setSectionLoading((prev) => ({ ...prev, chart: false }));
-      } catch (err) {
-        console.error("리뷰 로딩 실패:", err);
-      } finally {
-        setLoading(false);
-      }
+    if (insight) {
+      setSectionLoading((prev) => ({ ...prev, insights: false, tags: false }));
     }
 
-    load();
-  }, [user, selectedStoreId]);
+    if (reports) {
+      setLatestReport(reports?.[0] || null);
+    }
+
+    setLoading(false);
+  }, [user, selectedStoreId, reviewsData, fallbackReviews, insight, reports]);
 
   // =============================
   // 2) 기간 필터 적용
@@ -244,15 +257,9 @@ export default function Dashboard() {
   }, [rangeFiltered]);
   // 감정 카운트: summary 기반(필터된 리뷰 개수로 집계)
   const sentimentCounts = useMemo(() => {
-    const counts = { positive: 0, negative: 0, neutral: 0, irrelevant: 0 };
-    rangeFiltered.forEach((r) => {
-      const sentiment = r.summary?.sentiment || "irrelevant";
-      if (counts[sentiment as "positive" | "negative" | "neutral" | "irrelevant"] !== undefined) {
-        counts[sentiment as "positive" | "negative" | "neutral" | "irrelevant"] += 1;
-      }
-    });
-    return counts;
-  }, [rangeFiltered]);
+    // 리포트 기반 상태 우선 사용
+    return sentimentCountsState;
+  }, [sentimentCountsState]);
   const insightItems = [
     ...(insight?.insights || []),
     ...(insight?.positives || insight?.positive || []),

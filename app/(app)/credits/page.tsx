@@ -7,9 +7,9 @@ import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 
 const packs = [
-  { tokens: 1, price: 3000, label: "이용권 1개" },
-  { tokens: 5, price: 10000, label: "이용권 5개" },
-  { tokens: 10, price: 15000, label: "이용권 10개" },
+  { tokens: 1, price: 3000, original: 3000, label: "이용권 1개" },
+  { tokens: 5, price: 10000, original: 15000, label: "이용권 5개" }, // 약 33% 할인
+  { tokens: 10, price: 15000, original: 30000, label: "이용권 10개" }, // 약 50% 할인
 ];
 
 export default function CreditsPage() {
@@ -62,9 +62,7 @@ export default function CreditsPage() {
   return (
     <div className="min-h-screen bg-gradient-to-b from-white via-slate-50 to-sky-50 pt-[60px] pb-[90px] px-4 space-y-4 animate-fadeIn">
       <h1 className="text-xl font-bold text-gray-900">이용권 구매</h1>
-      <p className="text-sm text-gray-700">
-        스캔 1회 = 이용권 1개. 필요한 이용권 묶음을 선택해 결제하세요.
-      </p>
+      <p className="text-sm text-gray-700">필요한 이용권 묶음을 선택해 결제하세요.</p>
 
       <div className="grid gap-3">
         {packs.map((p) => (
@@ -75,8 +73,23 @@ export default function CreditsPage() {
             <div className="space-y-1">
               <p className="text-sm font-semibold text-gray-900">{p.label}</p>
               <div className="flex items-center gap-2 text-sm text-gray-600">
-                <span>{p.price.toLocaleString()}원</span>
+                <span className="text-base font-bold text-gray-900">{p.price.toLocaleString()}원</span>
+                {p.original > p.price && (
+                  <>
+                    <span className="text-xs line-through text-gray-400">
+                      {p.original.toLocaleString()}원
+                    </span>
+                    <span className="text-[11px] font-semibold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full">
+                      약 {Math.round(((p.original - p.price) / p.original) * 100)}% 할인
+                    </span>
+                  </>
+                )}
               </div>
+              {p.original > p.price && (
+                <p className="text-[11px] text-gray-500">
+                  개당 {(p.price / p.tokens).toLocaleString()}원 (기존 {(p.original / p.tokens).toLocaleString()}원)
+                </p>
+              )}
             </div>
             <button
               onClick={() => buyPack(p.tokens)}

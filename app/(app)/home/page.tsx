@@ -21,7 +21,6 @@ const tips = [
 
 export default function HomePage() {
   const router = useRouter();
-  const [query, setQuery] = useState("");
   const [stores, setStores] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [showStoreModal, setShowStoreModal] = useState(false);
@@ -44,23 +43,24 @@ export default function HomePage() {
   useEffect(() => {
     if (loading) return;
     setShowStoreModal(stores.length === 0);
+    if (typeof window !== "undefined") {
+      if (stores.length === 0) {
+        document.body.classList.add("hide-bottom-nav");
+      } else {
+        document.body.classList.remove("hide-bottom-nav");
+      }
+    }
+    return () => {
+      if (typeof window !== "undefined") {
+        document.body.classList.remove("hide-bottom-nav");
+      }
+    };
   }, [loading, stores.length]);
-
-  const filtered = useMemo(() => {
-    if (!query.trim()) return [];
-    const q = query.trim().toLowerCase();
-    return stores.filter((s) => {
-      const name = (s.name || "").toLowerCase();
-      const pid = (s.placeId || "").toLowerCase();
-      const url = (s.url || "").toLowerCase();
-      return name.includes(q) || pid.includes(q) || url.includes(q);
-    });
-  }, [query, stores]);
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-white via-slate-50 to-sky-50 pt-[60px] pb-[90px] px-4 space-y-6 animate-fadeIn relative">
       {showStoreModal && (
-        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm flex items-center justify-center px-4">
+        <div className="fixed inset-0 w-screen h-screen z-[120] bg-black/40 backdrop-blur-sm flex items-center justify-center px-4">
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-5 space-y-3 text-center">
             <h3 className="text-lg font-semibold text-gray-900">등록된 매장이 없습니다</h3>
             <p className="text-sm text-gray-700">
@@ -97,68 +97,7 @@ export default function HomePage() {
         </p>
       </section>
 
-      {/* 검색창 */}
-      <section>
-        <div className="bg-white border border-gray-100 rounded-2xl shadow-sm p-3 flex items-center gap-2">
-          <input
-            type="text"
-            placeholder="매장 이름을 검색하세요"
-            className="flex-1 text-sm px-3 py-2 rounded-xl border focus:ring-2 focus:ring-blue-400"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-          />
-          <button
-            className="px-4 py-2 rounded-xl bg-blue-600 text-white text-sm font-semibold active:scale-95"
-            onClick={() => {
-              if (filtered.length && filtered[0].placeId) {
-                router.push(`/start/flow?placeId=${filtered[0].placeId}`);
-              }
-            }}
-            disabled={loading}
-          >
-            검색
-          </button>
-        </div>
-        {query.trim() ? (
-          <div className="mt-3 bg-white border border-gray-100 rounded-2xl shadow-sm p-3 space-y-2">
-            <p className="text-xs text-gray-600">
-              검색 결과 ({filtered.length}건)
-            </p>
-            {filtered.length === 0 ? (
-              <p className="text-xs text-gray-500">
-                일치하는 매장을 찾을 수 없습니다.
-              </p>
-            ) : (
-              filtered.slice(0, 5).map((s) => (
-                <div
-                  key={s.id}
-                  className="text-sm text-gray-800 border border-gray-100 rounded-xl p-3 bg-gray-50"
-                >
-                  <p className="font-semibold">{s.name || "매장"}</p>
-                  <p className="text-[11px] text-gray-600">
-                    연결된 플랫폼:{" "}
-                    {[
-                      s.naverPlaceId ? "네이버" : null,
-                      s.googlePlaceId ? "구글" : null,
-                      s.kakaoPlaceId ? "카카오" : null,
-                    ]
-                      .filter(Boolean)
-                      .join(" / ") ||
-                      (s.url?.includes("map.naver.com")
-                        ? "네이버"
-                        : s.url?.includes("google.com/maps")
-                        ? "구글"
-                        : "없음")}
-                  </p>
-                  <p className="text-[11px] text-blue-600 truncate">
-                    {s.url || "URL 미등록"}
-                  </p>
-                </div>
-              ))
-            )}
-          </div>
-        ) : null}
-      </section>
+      {/* 검색 영역 제거됨 */}
 
       {/* 광고/배너 영역 (더미) */}
       <section className="bg-gradient-to-r from-sky-500 to-indigo-500 text-white rounded-2xl p-4 shadow-sm">
