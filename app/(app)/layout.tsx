@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import BottomNav from "@/components/BottomNav";
 import { GuardWrapper } from "./guard-wrapper";
+import { ClientToaster } from "@/components/ClientToaster";
 
 import "../globals.css";
 
@@ -29,6 +30,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
       >
         <main className="pt-1 pb-[70px] px-0">{children}</main>
         <BottomNav />
+        <ClientToaster />
       </div>
     </GuardWrapper>
   );

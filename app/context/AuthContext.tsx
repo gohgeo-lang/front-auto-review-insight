@@ -1,7 +1,8 @@
-"use client";
+ "use client";
 
 import { createContext, useEffect, useState, ReactNode, useCallback } from "react";
 import { api } from "@/lib/api";
+import toast from "react-hot-toast";
 
 interface User {
   id: string;
@@ -68,6 +69,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       localStorage.setItem(`onboarded:${user.id}`, "true");
     }
     setUser(user);
+    toast.success("로그인되었습니다.");
   };
 
   const logout = () => {
@@ -75,6 +77,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     localStorage.removeItem("user");
     // onboarded 플래그는 유지 (다시 로그인 시 활용)
     setUser(null);
+    toast.success("로그아웃되었습니다.");
   };
 
   return (

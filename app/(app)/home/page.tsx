@@ -43,19 +43,20 @@ export default function HomePage() {
   useEffect(() => {
     if (loading) return;
     setShowStoreModal(stores.length === 0);
-    if (typeof window !== "undefined") {
-      if (stores.length === 0) {
-        document.body.classList.add("hide-bottom-nav");
-      } else {
-        document.body.classList.remove("hide-bottom-nav");
-      }
+  }, [loading, stores.length]);
+
+  // 모달 표시 상태에 따라 바텀네비 숨김 클래스 토글
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (showStoreModal) {
+      document.body.classList.add("hide-bottom-nav");
+    } else {
+      document.body.classList.remove("hide-bottom-nav");
     }
     return () => {
-      if (typeof window !== "undefined") {
-        document.body.classList.remove("hide-bottom-nav");
-      }
+      document.body.classList.remove("hide-bottom-nav");
     };
-  }, [loading, stores.length]);
+  }, [showStoreModal]);
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-white via-slate-50 to-sky-50 pt-[60px] pb-[90px] px-4 space-y-6 animate-fadeIn relative">
@@ -118,7 +119,7 @@ export default function HomePage() {
             우리 매장 스캔하기
           </p>
           <p className="text-xs text-gray-600">
-            보유 토큰으로 리뷰 수집·분석을 한 번 실행합니다.
+            보유 이용권으로 리뷰 수집·분석을 한 번 실행합니다.
           </p>
           <span className="text-[11px] text-gray-500">
             최근 30일 · 300건까지
